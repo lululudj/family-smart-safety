@@ -1,0 +1,7 @@
+{
+    "ended_at":  "2026-10-17T13:06:46.2810254+08:00",
+    "note":  "用户表示可以了，未采到1500",
+    "final_count":  235,
+    "reason":  "user_stopped_early",
+    "target_cancelled":  1500
+}

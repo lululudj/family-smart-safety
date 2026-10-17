@@ -1,0 +1,65 @@
+{
+ "polygon": [
+  [
+   -1.7093651549813396,
+   0.3089391898548627
+  ],
+  [
+   2.5886475584450013,
+   0.6048437672933812
+  ],
+  [
+   2.9976521479871607,
+   -2.6251682165163923
+  ],
+  [
+   -1.2902801679343299,
+   -3.1442807788318823
+  ]
+ ],
+ "height": 2.98,
+ "surfaces": {
+  "Floor": {
+   "file": "tex_Floor.png",
+   "w": 1024,
+   "h": 1024,
+   "coverage": 0.9289,
+   "points": 203949
+  },
+  "Ceiling": {
+   "file": "tex_Ceiling.png",
+   "w": 1024,
+   "h": 1024,
+   "coverage": 0.9524,
+   "points": 119473
+  },
+  "Wall_North": {
+   "file": "tex_Wall_North.png",
+   "w": 1025,
+   "h": 709,
+   "coverage": 0.9806,
+   "points": 190560
+  },
+  "Wall_East": {
+   "file": "tex_Wall_East.png",
+   "w": 775,
+   "h": 709,
+   "coverage": 1.0,
+   "points": 219487
+  },
+  "Wall_South": {
+   "file": "tex_Wall_South.png",
+   "w": 1028,
+   "h": 709,
+   "coverage": 0.9995,
+   "points": 178342
+  },
+  "Wall_West": {
+   "file": "tex_Wall_West.png",
+   "w": 828,
+   "h": 709,
+   "coverage": 0.926,
+   "points": 211682
+  }
+ }
+}

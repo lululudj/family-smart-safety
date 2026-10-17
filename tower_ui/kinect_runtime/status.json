@@ -1,0 +1,1 @@
+{"connected": true, "available": true, "frames_active": true, "sensor": "Kinect v2", "note": "Color + registered depth (Python direct)", "body_count": 0, "bodies": [], "color_width": 1920, "color_height": 1080, "depth_width": 960, "depth_height": 540, "color_url": "/kinect/color.jpg", "depth_url": "/kinect/depth.jpg", "updated_at": "2026-10-17 21:14:41"}

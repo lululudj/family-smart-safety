@@ -1,0 +1,35 @@
+{
+  "created_at": "2026-10-17T13:15:39",
+  "elapsed_sec": 437.6,
+  "label_stats": {
+    "pos": 60,
+    "neg": 175,
+    "boxes": 61,
+    "by_kind": {
+      "promote": 32,
+      "second": 10,
+      "drone": 18
+    }
+  },
+  "weights": "E:\\全家智能安全调度系统\\datasets\\tello_kinect\\weights\\tello_yolov8n.pt",
+  "run_dir": "E:\\全家智能安全调度系统\\datasets\\tello_kinect\\exports\\tello_n_auto",
+  "epochs": 60,
+  "metrics_last_epoch": {
+    "epoch": "60",
+    "time": "150.952",
+    "train/box_loss": "0.95605",
+    "train/cls_loss": "1.19936",
+    "train/dfl_loss": "1.07142",
+    "metrics/precision(B)": "0.70088",
+    "metrics/recall(B)": "0.5",
+    "metrics/mAP50(B)": "0.50411",
+    "metrics/mAP50-95(B)": "0.35865",
+    "val/box_loss": "1.3362",
+    "val/cls_loss": "2.08979",
+    "val/dfl_loss": "1.40047",
+    "lr/pg0": "5.3e-05",
+    "lr/pg1": "5.3e-05",
+    "lr/pg2": "5.3e-05"
+  },
+  "note": "弱监督预标注（YOLO-World + promote），需人工抽查标签质量"
+}

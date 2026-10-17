@@ -1,0 +1,15 @@
+[Unit]
+Description=Ganglion tower dashboard (Flask, port 8080)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=orangepi
+WorkingDirectory=/home/orangepi/tower_ui
+ExecStart=/usr/bin/python3 /home/orangepi/tower_ui/server.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

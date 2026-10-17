@@ -1,0 +1,6 @@
+# Auto-generated for Tello weak-label train
+path: E:/全家智能安全调度系统/datasets/tello_kinect
+train: images/train
+val: images/val
+names:
+  0: tello

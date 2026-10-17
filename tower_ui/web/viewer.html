@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>GLB 模型查看器</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#111;font-family:system-ui}
+  #info{position:fixed;top:10px;left:10px;color:#8fd;padding:8px 12px;background:rgba(0,0,0,.55);
+        border-radius:8px;font-size:13px;pointer-events:none}
+  #err{position:fixed;inset:0;display:none;place-items:center;color:#f88;font-size:16px;background:#111}
+</style>
+</head>
+<body>
+<div id="info">鼠标左键旋转 · 滚轮缩放 · 右键平移</div>
+<div id="err"><span id="errmsg">加载失败</span></div>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x14161a);
+const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.01, 500);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x30343a, 1.6));
+const dir = new THREE.DirectionalLight(0xffffff, 1.6);
+dir.position.set(3, 8, 5);
+scene.add(dir);
+const dir2 = new THREE.DirectionalLight(0xffffff, 0.7);
+dir2.position.set(-4, 2, -5);
+scene.add(dir2);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+const model = new URLSearchParams(location.search).get('model') || 'cowork_room.glb';
+new GLTFLoader().load(model + '?v=' + Date.now(), (gltf) => {
+  const obj = gltf.scene;
+  scene.add(obj);
+
+  // 取景：包围盒自适应
+  const box = new THREE.Box3().setFromObject(obj);
+  const c = box.getCenter(new THREE.Vector3());
+  const s = box.getSize(new THREE.Vector3());
+  const r = Math.max(s.x, s.y, s.z);
+  controls.target.copy(c);
+  camera.position.set(c.x + r * 0.9, c.y + r * 0.75, c.z + r * 1.0);
+  camera.near = r / 200;
+  camera.far = r * 50;
+  camera.updateProjectionMatrix();
+  controls.update();
+
+  document.getElementById('info').textContent =
+    `尺寸 ${s.x.toFixed(2)} × ${s.z.toFixed(2)} × 高 ${s.y.toFixed(2)} m · ${model}`;
+}, undefined, (e) => {
+  const el = document.getElementById('err');
+  el.style.display = 'grid';
+  document.getElementById('errmsg').textContent = '加载失败: ' + (e && e.message || e);
+});
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+</script>
+</body>
+</html>

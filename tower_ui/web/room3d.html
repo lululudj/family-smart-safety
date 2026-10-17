@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>全屋三维模型 · 家庭安全调度系统</title>
+<style>
+  :root{
+    --bg:#0b0f14; --panel:rgba(18,24,33,.86); --line:rgba(120,160,200,.18);
+    --txt:#e7eef7; --dim:#8ba0b8; --acc:#4da3ff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;overflow:hidden}
+  #app{position:fixed;inset:0}
+  canvas{display:block}
+
+  .panel{position:absolute;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;backdrop-filter:blur(12px);padding:14px 16px;z-index:100}
+  #stat{z-index:100} #hint{z-index:100} #err{z-index:200}
+
+  #info{top:16px;left:16px;min-width:232px}
+  #info h1{margin:0 0 2px;font-size:15px;font-weight:600;letter-spacing:.3px}
+  #info .sub{color:var(--dim);font-size:11px;margin-bottom:10px}
+  .kv{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;
+    border-bottom:1px dashed rgba(120,160,200,.10)}
+  .kv:last-child{border-bottom:none}
+  .kv span:first-child{color:var(--dim)}
+  .kv span:last-child{font-variant-numeric:tabular-nums;color:var(--txt)}
+
+  #ctl{bottom:16px;left:16px;display:flex;flex-wrap:wrap;gap:8px;max-width:min(560px,90vw)}
+  button{background:rgba(77,163,255,.10);border:1px solid rgba(77,163,255,.32);
+    color:var(--txt);padding:8px 13px;border-radius:9px;font-size:12.5px;cursor:pointer;
+    transition:background .15s,border-color .15s}
+  button:hover{background:rgba(77,163,255,.20)}
+  button.off{background:transparent;border-color:rgba(120,160,200,.22);color:var(--dim)}
+
+  #hint{position:absolute;bottom:18px;right:18px;color:var(--dim);font-size:11px;
+    text-align:right;line-height:1.6}
+  #stat{position:absolute;top:16px;right:16px;font-size:11.5px;color:var(--dim)}
+  #stat b{color:var(--acc);font-weight:600}
+  #err{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    color:#ff8090;font-size:13px;display:none;text-align:center;line-height:1.7}
+
+  #toast{position:absolute;top:72px;left:50%;transform:translateX(-50%);
+    background:rgba(77,163,255,.92);color:#fff;padding:9px 18px;border-radius:20px;
+    font-size:13px;font-weight:600;opacity:0;transition:opacity .18s;pointer-events:none;
+    z-index:300;box-shadow:0 4px 18px rgba(0,0,0,.4)}
+  #toast.show{opacity:1}
+  button:active{transform:scale(.94)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div class="panel" id="info">
+  <h1>全屋三维模型</h1>
+  <div class="sub">RTAB-Map 融合扫描 · AI 4× 超分 · <b style="color:var(--acc)">v5.0</b></div>
+  <div class="kv"><span>房间尺寸</span><span>4.61 × 2.89 m</span></div>
+  <div class="kv"><span>占地</span><span>13.3 m²</span></div>
+  <div class="kv"><span>层高</span><span>3.58 m</span></div>
+  <div class="kv"><span>扫描点</span><span>4,458,793</span></div>
+  <div class="kv"><span>内部点云</span><span>550,000</span></div>
+  <div class="kv"><span>壳体三角面</span><span>12</span></div>
+  <div class="kv"><span>贴图分辨率</span><span>4096 px（AI 超分）</span></div>
+</div>
+
+<div class="panel" id="ctl">
+  <button id="bRoof">天花板</button>
+  <button id="bInner">家具点云</button>
+  <button id="bWall">墙体</button>
+  <button id="bFlat">平面模式</button>
+  <button id="bReset">重置视角</button>
+</div>
+
+<div id="stat">FPS <b id="fps">--</b> · 拖拽旋转 · 滚轮缩放 · 右键平移</div>
+<div id="toast"></div>
+<div id="hint">左键拖拽 = 旋转<br>滚轮 = 缩放<br>右键拖拽 = 平移<br><b style="color:var(--acc)">点击模型 = 选中高亮</b></div>
+<div id="err">模型加载失败<br><span id="errmsg"></span></div>
+
+<script>
+// surface any failure (module load, texture decode, WebGL) on screen
+(function () {
+  function show(msg) {
+    var el = document.getElementById('err');
+    var m = document.getElementById('errmsg');
+    if (!el || !m || el.style.display === 'block') return;
+    el.style.display = 'block';
+    m.textContent = String(msg).slice(0, 300);
+  }
+  window.addEventListener('error', function (e) {
+    show((e.message || 'script error') + (e.filename ? ' @ ' + e.filename.split('/').pop() : ''));
+  }, true);
+  window.addEventListener('unhandledrejection', function (e) {
+    show('Promise: ' + ((e.reason && (e.reason.message || e.reason)) || 'unknown'));
+  });
+  window.__roomBoot = 'html-parsed';
+})();
+</script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.js",
+    "three/addons/": "./vendor/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// proves the ES module executed (a black canvas alone cannot tell us this)
+document.getElementById('stat').innerHTML =
+  'three.js r' + THREE.REVISION + ' 已加载 · 拖拽旋转 · 滚轮缩放 · 右键平移 · FPS <b id="fps">--</b>';
+
+const app = document.getElementById('app');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0f14);
+scene.fog = new THREE.Fog(0x0b0f14, 14, 34);
+
+const camera = new THREE.PerspectiveCamera(48, innerWidth/innerHeight, 0.05, 200);
+camera.position.set(6.5, 5.2, 7.5);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+app.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.maxPolarAngle = Math.PI * 0.495;   // stay above the floor
+controls.minDistance = 1.0;
+controls.maxDistance = 40;
+controls.target.set(0, 1.3, 0);
+
+// ---------------------------------------------------------------- lights
+scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x1a2028, 1.15));
+const key = new THREE.DirectionalLight(0xffffff, 1.5);
+key.position.set(6, 11, 7); scene.add(key);
+const fill = new THREE.DirectionalLight(0xbcd4ff, 0.65);
+fill.position.set(-7, 5, -6); scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffffff, 0.4);
+rim.position.set(0, -5, 4); scene.add(rim);
+
+// ---------------------------------------------------------------- ground grid
+const grid = new THREE.GridHelper(24, 48, 0x2a3a4d, 0x18222d);
+grid.position.y = -0.01;
+scene.add(grid);
+
+// ---------------------------------------------------------------- load model
+const groups = { shell:{}, points:{} };
+let model = null;
+const bRoof = document.getElementById('bRoof');
+const bInner = document.getElementById('bInner');
+const bWall = document.getElementById('bWall');
+const bFlat = document.getElementById('bFlat');
+
+const loader = new GLTFLoader();
+loader.load('room_model_v5.glb?v=5rtab', (gltf) => {
+  model = gltf.scene;
+  // 天地修正：点云诊断证实真实地面在 GLB X+ 端、天花板在 X- 端（RANSAC 当时把墙误判为地面），
+  // 绕 Z 轴 -90° 把 X+ 转到下方；再绕世界竖直轴 premultiply 保持俯视顺时针 90° 航向
+  model.rotation.set(0, 0, -Math.PI / 2);
+  model.quaternion.premultiply(
+    new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2));
+  const maxAniso = renderer.capabilities.getMaxAnisotropy();
+  model.traverse(o => {
+    if (!o.isMesh && !o.isPoints) return;
+    const isPoints = o.isPoints;
+    o.userData.role = o.name === 'Interior'  ? 'inner'
+                    : o.name === 'Wall_West' ? 'roof'   // 真实天花板（旋转修正后）
+                    : 'wall';                            // 其余（含原 Ceiling/Floor 面）均为墙/地
+    if (isPoints) {
+      o.material.size = 0.022;
+      o.material.sizeAttenuation = true;
+      o.material.vertexColors = true;
+      o.material.transparent = true;
+      o.material.opacity = 0.95;
+      groups.points[o.uuid] = o;
+    } else {
+      // GLB quads carry a corrupt index (count=NaN) that kills render & raycast — force rebuild
+      const gq = o.geometry;
+      if (gq && gq.attributes.position && gq.attributes.position.count === 4) {
+        gq.setIndex([0, 1, 2, 0, 2, 3]);
+      }
+      o.material.side = THREE.DoubleSide;
+      o.material.roughness = 0.92;
+      o.material.metalness = 0.0;
+      // keep the 4096px AI-upscaled textures crisp at grazing angles
+      const map = o.material.map;
+      if (map) {
+        map.anisotropy = maxAniso;
+        map.minFilter = THREE.LinearMipmapLinearFilter;
+        map.magFilter = THREE.LinearFilter;
+        map.generateMipmaps = true;
+        map.needsUpdate = true;
+        // self-lit texture baseline: detail stays visible at any light angle
+        o.material.emissiveMap = map;
+        o.material.emissive = new THREE.Color(0xffffff);
+        o.material.emissiveIntensity = 0.35;
+      }
+      groups.shell[o.uuid] = o;
+    }
+  });
+  scene.add(model);
+
+  // frame the model
+  const box = new THREE.Box3().setFromObject(model);
+  const c = box.getCenter(new THREE.Vector3());
+  const s = box.getSize(new THREE.Vector3());
+  const r = Math.max(s.x, s.y, s.z);
+  controls.target.set(c.x, c.y * 0.72, c.z);
+  camera.position.set(c.x + r * 0.95, c.y + r * 0.85, c.z + r * 1.05);
+  controls.update();
+  camera.near = r / 200; camera.far = r * 40; camera.updateProjectionMatrix();
+
+  applyVisibility();
+
+  // URL params: roof=0 / wall=0 / inner=0 / view=dh1|dh2 (dollhouse preset)
+  const qp = new URLSearchParams(location.search);
+  if (qp.get('roof') === '0')  state.roof  = false;
+  if (qp.get('wall') === '0')  state.wall  = false;
+  if (qp.get('inner') === '0') state.inner = false;
+  const qv = qp.get('view');
+  if (qv === 'dh1' || qv === 'dh2'){
+    const az = (qv === 'dh1') ? Math.PI * 0.25 : Math.PI * 0.75;
+    const rr = r * 1.15;
+    camera.position.set(c.x + rr * Math.cos(az), c.y + rr * 1.35, c.z + rr * Math.sin(az));
+    controls.target.set(c.x, c.y * 0.45, c.z);
+    controls.update();
+  }
+  applyVisibility();
+
+  // debug handle for runtime diagnosis
+  window.__room = { groups, state, applyVisibility, sync, model, camera, raycaster, select };
+}, undefined, (e) => {
+  document.getElementById('err').style.display = 'block';
+  document.getElementById('errmsg').textContent = String(e && e.message || e);
+});
+
+// ---------------------------------------------------------------- toggles
+const state = { roof:true, inner:true, wall:true, flat:false };
+let selected = null;   // currently picked object (shared with picking section)
+function applyVisibility(){
+  for (const o of Object.values(groups.shell)) {
+    const role = o.userData.role;
+    o.visible = (role === 'roof') ? state.roof : state.wall;
+  }
+  for (const o of Object.values(groups.points)) o.visible = state.inner;
+  if (selected && !selected.visible) select(null);   // drop selection if hidden via toolbar
+}
+function sync(){
+  bRoof.classList.toggle('off', !state.roof);
+  bInner.classList.toggle('off', !state.inner);
+  bWall.classList.toggle('off', !state.wall);
+  bFlat.classList.toggle('off', !state.flat);
+  applyVisibility();
+}
+bRoof.onclick  = () => { state.roof  = !state.roof;  sync(); toast(state.roof ? '天花板：已显示' : '天花板：已隐藏'); };
+bInner.onclick = () => { state.inner = !state.inner; sync(); toast(state.inner ? '家具点云：已显示' : '家具点云：已隐藏'); };
+bWall.onclick  = () => { state.wall  = !state.wall;  sync(); toast(state.wall ? '墙体：已显示' : '墙体：已隐藏'); };
+bFlat.onclick  = () => {
+  state.flat = !state.flat;
+  for (const o of Object.values(groups.shell)) {
+    if (o.userData.role === 'wall') {
+      o.material.flatShading = state.flat;
+      o.material.needsUpdate = true;
+    }
+  }
+  sync(); toast(state.flat ? '平面模式：开' : '平面模式：关');
+};
+document.getElementById('bReset').onclick = () => {
+  if (!model) return;
+  const box = new THREE.Box3().setFromObject(model);
+  const c = box.getCenter(new THREE.Vector3());
+  const s = box.getSize(new THREE.Vector3());
+  const r = Math.max(s.x, s.y, s.z);
+  controls.target.set(c.x, c.y * 0.72, c.z);
+  camera.position.set(c.x + r * 0.95, c.y + r * 0.85, c.z + r * 1.05);
+  controls.update();
+  toast('视角已重置');
+};
+sync();
+
+let toastTimer = null;
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1400);
+}
+
+// ------------------------------------------------------- click-to-select (raycast)
+const raycaster = new THREE.Raycaster();
+const pointerNDC = new THREE.Vector2();
+const selBox = new THREE.BoxHelper(undefined, 0x4da3ff);
+selBox.material.depthTest = false;
+selBox.visible = false;
+scene.add(selBox);
+
+const NAME_LABEL = { Floor:'墙面', Ceiling:'墙面', Wall_West:'天花板', Wall_East:'地面',
+                     Wall_North:'墙', Wall_South:'墙', Interior:'家具点云' };
+function roleLabel(o){ return NAME_LABEL[o.name] || o.name; }
+
+function setHighlight(o, on){
+  if (o.isPoints){
+    o.material.size    = on ? 0.045 : 0.022;   // enlarge points when selected
+    o.material.opacity = on ? 1.0   : 0.95;
+  } else if (o.material && o.material.emissive){
+    // selection = boost the self-lit baseline (emissiveMap stays attached)
+    if (on){ o.material.emissive.setHex(0x9ecbff); o.material.emissiveIntensity = 0.85; }
+    else   { o.material.emissive.setHex(0xffffff); o.material.emissiveIntensity = 0.35; }
+  }
+}
+
+function select(o){
+  if (selected === o) return;
+  if (selected) setHighlight(selected, false);
+  selected = o;
+  if (o){
+    setHighlight(o, true);
+    selBox.setFromObject(o);
+    selBox.visible = true;
+    toast('已选中：' + roleLabel(o));
+  } else {
+    selBox.visible = false;
+  }
+}
+
+const dom3d = renderer.domElement;
+window.__pickLog = [];
+let pdown = null;
+dom3d.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return;
+  pdown = { x: e.clientX, y: e.clientY, t: performance.now() };
+  window.__pickLog.push(['down', e.clientX, e.clientY]);
+});
+dom3d.addEventListener('mouseup', (e) => {
+  if (e.button !== 0 || !pdown) return;
+  const moved = Math.hypot(e.clientX - pdown.x, e.clientY - pdown.y);
+  const dt = performance.now() - pdown.t;
+  pdown = null;
+  window.__pickLog.push(['up', e.clientX, e.clientY, Math.round(moved), Math.round(dt)]);
+  if (moved > 6 || dt > 600) return;          // it was a drag / long press, not a click
+  if (!model) return;
+  pointerNDC.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  raycaster.setFromCamera(pointerNDC, camera);
+  // dynamic point-pick radius: scales with camera distance so any zoom level works
+  raycaster.params.Points.threshold = Math.max(0.015, camera.position.distanceTo(controls.target) * 0.012);
+  const shells = Object.values(groups.shell).filter(o => o.visible);
+  const hitM = raycaster.intersectObjects(shells, false);
+  if (hitM.length){ select(hitM[0].object); window.__pickLog.push(['pick', hitM[0].object.name]); return; }
+  // no shell hit -> try furniture point cloud (only if it is visible)
+  const pts = Object.values(groups.points).filter(o => o.visible);
+  const hitP = pts.length ? raycaster.intersectObjects(pts, false) : [];
+  if (hitP.length){ select(hitP[0].object); window.__pickLog.push(['pick', hitP[0].object.name]); }
+  else { if (selected) toast('已取消选中'); select(null); window.__pickLog.push(['pick', 'none']); }
+});
+
+// ---------------------------------------------------------------- loop
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+let last = performance.now(), frames = 0;
+const fpsEl = document.getElementById('fps');
+function tick(now){
+  requestAnimationFrame(tick);
+  controls.update();
+  renderer.render(scene, camera);
+  frames++;
+  if (now - last > 500) {
+    fpsEl.textContent = Math.round(frames * 1000 / (now - last));
+    frames = 0; last = now;
+  }
+}
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

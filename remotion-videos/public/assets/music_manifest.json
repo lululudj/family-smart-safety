@@ -1,0 +1,30 @@
+{
+  "tracks": [
+    {
+      "upload_id": 36829,
+      "title": "Sharing is Caring (Twitter A Cappella)",
+      "artist": "itsDanBull",
+      "source_url": "https://ccmixter.org/files/itsDanBull/36829",
+      "artist_url": "https://ccmixter.org/people/itsDanBull",
+      "license_name": "Attribution (3.0)",
+      "license_url": "http://creativecommons.org/licenses/by/3.0/",
+      "file_name": "itsDanBull_-_Sharing_is_Caring_(Twitter_A_Cappella).mp3",
+      "bpm": 116,
+      "duration": "3:06",
+      "downloaded_at": "2026-10-09T11:42:02.856Z"
+    },
+    {
+      "upload_id": 2958,
+      "title": "On The Moon (Trip Hop mix)",
+      "artist": "disharmonic",
+      "source_url": "https://ccmixter.org/files/disharmonic/2958",
+      "artist_url": "https://ccmixter.org/people/disharmonic",
+      "license_name": "Attribution",
+      "license_url": "http://creativecommons.org/licenses/by/2.5/",
+      "file_name": "disharmonic_-_On_The_Moon_(Trip_Hop_mix).ogg",
+      "bpm": 84,
+      "duration": "4:36",
+      "downloaded_at": "2026-10-09T11:43:40.810Z"
+    }
+  ]
+}

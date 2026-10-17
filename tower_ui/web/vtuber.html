@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VTuber 组件演示页</title>
+<!-- ============================================================
+  VTuber 悬浮组件 · 单文件版（嵌入说明）
+  1. 保证页面可访问三个依赖（同源）：
+     /libs/live2dcubismcore.js  /libs/pixi.min.js  /libs/pixi-live2d-display.min.js
+  2. 把下方「组件开始→结束」的 <style> <div> <script> 整段拷进你自己的页面。
+  3. LLM 走本站 /api/llm/chat 转发（豆包/火山方舟等 OpenAI 兼容 API 均可）。
+============================================================ -->
+<script src="/libs/live2dcubismcore.js?v=2"></script>
+<script src="/libs/pixi.min.js?v=2"></script>
+<script src="/libs/pixi-live2d-display.min.js?v=2"></script>
+</head>
+<body style="margin:0; min-height:100vh; background:#10161a; color:#9fb3b0; font-family: system-ui, 'Microsoft YaHei', sans-serif;">
+
+<!-- ====== VTuber 组件开始（拷贝这一整段） ====== -->
+<style>
+  #vt-stage { position: fixed; z-index: 99999; width: 340px; height: 460px;
+    touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
+  #vt-stage.vt-dragging { cursor: grabbing; }
+  #vt-canvas { width: 100%; height: 100%; display: block; }
+  #vt-btns { position: absolute; left: 50%; transform: translateX(-50%); bottom: -2px;
+    display: flex; gap: 8px; pointer-events: auto; }
+  #vt-btns button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(77,214,183,.5);
+    background: rgba(10,20,24,.85); color: #bff3e3; font-size: 17px; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0,0,0,.45); transition: transform .15s, background .15s; }
+  #vt-btns button:hover { transform: translateY(-2px); background: rgba(23,49,58,.95); }
+  .vt-badge { position: absolute; top: 8px; right: 10px; font-size: 10px; color: #6ee7c7;
+    background: rgba(10,20,24,.7); border: 1px solid rgba(77,214,183,.35); border-radius: 10px;
+    padding: 2px 8px; pointer-events: none; font-family: system-ui, sans-serif; }
+
+  .vt-panel { position: absolute; bottom: 0; width: 340px; max-width: calc(100vw - 40px);
+    max-height: min(500px, calc(100vh - 40px)); display: flex; flex-direction: column;
+    background: rgba(11,18,22,.93); backdrop-filter: blur(8px);
+    border: 1px solid rgba(77,214,183,.3); border-radius: 12px;
+    box-shadow: 0 14px 44px rgba(0,0,0,.55); overflow: hidden;
+    font-family: system-ui, "Microsoft YaHei", sans-serif; color: #d7e9e4; }
+  .vt-panel[hidden] { display: none; }
+  .vt-panel-head { display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.08);
+    font-size: 13px; font-weight: 700; color: #9ff0d9; }
+  .vt-panel-head .vt-x { background: none; border: 0; color: #8fa3a8; font-size: 15px; cursor: pointer; }
+  .vt-panel-head .vt-x:hover { color: #fff; }
+
+  #vt-msgs { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;
+    scrollbar-width: thin; }
+  .vt-msg { max-width: 86%; padding: 8px 11px; border-radius: 10px; font-size: 13px; line-height: 1.65;
+    white-space: pre-wrap; word-break: break-word; }
+  .vt-msg.user { align-self: flex-end; background: rgba(77,214,183,.16);
+    border: 1px solid rgba(77,214,183,.4); border-bottom-right-radius: 3px; }
+  .vt-msg.ai { align-self: flex-start; background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.12); border-bottom-left-radius: 3px; }
+  .vt-msg.ai.vt-err { border-color: rgba(255,110,110,.5); color: #ffb3b3; }
+  .vt-cursor { display: inline-block; width: 2px; height: 14px; margin-left: 2px;
+    background: #6ee7c7; animation: vtBlink .8s steps(1) infinite; vertical-align: -2px; }
+  @keyframes vtBlink { 50% { opacity: 0; } }
+  #vt-input-row { display: flex; gap: 8px; padding: 10px; border-top: 1px solid rgba(255,255,255,.08); }
+  #vt-input { flex: 1; min-width: 0; padding: 9px 12px; font-size: 13px; color: #e7f6f0;
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.15);
+    border-radius: 8px; outline: none; }
+  #vt-input:focus { border-color: rgba(77,214,183,.7); }
+  #vt-send { padding: 9px 16px; font-size: 13px; font-weight: 700; color: #06231b;
+    background: linear-gradient(140deg, #6ee7c7, #3ec9a8); border: 0; border-radius: 8px; cursor: pointer; }
+  #vt-send:disabled { opacity: .5; cursor: wait; }
+  #vt-mic { padding: 9px 12px; font-size: 14px; color: #e7f6f0;
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.15);
+    border-radius: 8px; cursor: pointer; }
+  #vt-mic.rec { color: #fff; background: #e5484d; border-color: #e5484d; animation: vtMicPulse 1s infinite; }
+  #vt-mic:disabled { opacity: .5; cursor: wait; }
+  @keyframes vtMicPulse { 50% { opacity: .6; } }
+
+  #vt-settings { width: 310px; }
+  #vt-set-body { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column;
+    gap: 10px; scrollbar-width: thin; }
+  .vt-field label { display: block; font-size: 11px; color: #93aca9; margin-bottom: 4px; }
+  .vt-field input[type=text], .vt-field input[type=password], .vt-field input[type=number],
+  .vt-field select, .vt-field textarea { width: 100%; box-sizing: border-box; padding: 7px 9px;
+    font-size: 12px; color: #e7f6f0; background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.15); border-radius: 7px; outline: none; font-family: inherit; }
+  .vt-field input:focus, .vt-field select:focus, .vt-field textarea:focus { border-color: rgba(77,214,183,.7); }
+  .vt-field textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
+  .vt-field input[type=range] { width: 100%; accent-color: #4dd6b7; }
+  .vt-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .vt-check { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #c9dcd7; }
+  .vt-check input { accent-color: #4dd6b7; width: 15px; height: 15px; }
+  #vt-set-actions { display: flex; gap: 8px; padding: 0 14px 12px; }
+  #vt-set-actions button { flex: 1; padding: 9px 0; font-size: 12px; font-weight: 700; border-radius: 8px;
+    border: 0; cursor: pointer; }
+  #vt-save { color: #06231b; background: linear-gradient(140deg, #6ee7c7, #3ec9a8); }
+  #vt-clear-hist { color: #ffd7d7; background: rgba(255,110,110,.14); border: 1px solid rgba(255,110,110,.4) !important; }
+  #vt-set-tip { font-size: 10px; color: #7fa39c; padding: 0 14px 10px; line-height: 1.6; }
+</style>
+
+<div id="vt-stage">
+  <canvas id="vt-canvas"></canvas>
+  <div class="vt-badge" id="vt-badge">加载中…</div>
+  <div id="vt-btns">
+    <button id="vt-chat-btn" title="聊天">💬</button>
+    <button id="vt-set-btn" title="设置">⚙️</button>
+  </div>
+
+  <div class="vt-panel" id="vt-chat" hidden>
+    <div class="vt-panel-head"><span>对话记录</span><button class="vt-x" data-close="vt-chat">✕</button></div>
+    <div id="vt-msgs"></div>
+    <div id="vt-input-row">
+      <input id="vt-input" type="text" placeholder="和她说点什么…" autocomplete="off">
+      <button id="vt-mic" title="点击开始说话，再点结束并识别">🎤</button>
+      <button id="vt-send">发送</button>
+    </div>
+  </div>
+
+  <div class="vt-panel" id="vt-settings" hidden>
+    <div class="vt-panel-head"><span>设置</span><button class="vt-x" data-close="vt-settings">✕</button></div>
+    <div id="vt-set-body">
+      <div class="vt-field"><label>API Key（DeepSeek / 任意 OpenAI 兼容）</label>
+        <input type="password" id="vt-key" placeholder="在此粘贴 API Key"></div>
+      <div class="vt-field"><label>API 地址（OpenAI 兼容）</label>
+        <input type="text" id="vt-base" placeholder="https://api.deepseek.com/v1"></div>
+      <div class="vt-field"><label>模型名</label>
+        <input type="text" id="vt-model" placeholder="deepseek-flash"></div>
+      <div class="vt-row2">
+        <div class="vt-field"><label>角色大小</label>
+          <input type="range" id="vt-scale" min="0.3" max="0.95" step="0.01"></div>
+        <div class="vt-field"><label>温度 <span id="vt-temp-v"></span></label>
+          <input type="range" id="vt-temp" min="0" max="1" step="0.1"></div>
+      </div>
+      <label class="vt-check"><input type="checkbox" id="vt-tts"> 语音播报 TTS（带嘴型同步）</label>
+      <button type="button" id="vt-tts-test" style="margin:2px 0 10px;padding:5px 14px;align-self:flex-start;">试听语音</button>
+      <div class="vt-field"><label>音色</label><select id="vt-voice"></select></div>
+      <div class="vt-row2">
+        <div class="vt-field"><label>语速 <span id="vt-rate-v"></span></label>
+          <input type="range" id="vt-rate" min="0.5" max="2" step="0.1"></div>
+        <div class="vt-field"><label>音量 <span id="vt-vol-v"></span></label>
+          <input type="range" id="vt-vol" min="0" max="1" step="0.1"></div>
+      </div>
+      <div class="vt-field"><label>音调 <span id="vt-pitch-v"></span> Hz（低沉 ↔ 明亮）</label>
+        <input type="range" id="vt-pitch" min="-50" max="50" step="5"></div>
+      <div class="vt-field"><label>角色人设（System Prompt）</label>
+        <textarea id="vt-prompt" placeholder="她的人格、说话风格…"></textarea></div>
+      <div class="vt-field"><label>Live2D 模型地址（高级，改后自动刷新）</label>
+        <input type="text" id="vt-model-url"></div>
+    </div>
+    <div id="vt-set-actions">
+      <button id="vt-save">保存设置</button>
+      <button id="vt-clear-hist">清空对话</button>
+    </div>
+    <div id="vt-set-tip">Key 只存在你本机浏览器（localStorage），经本站 /api/llm/chat 转发后即弃，不落盘。</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const LS_SET = 'vtuber.settings.v2', LS_HIST = 'vtuber.history.v1', LS_LAYOUT = 'vtuber.layout.v1';
+
+  /* ---------------- 设置与持久化 ---------------- */
+  const DEFAULTS = {
+    apiKey: 'sk-0961455c7a0d42c4835c232dc4cb0037',   // DeepSeek key（用户指定；页面在局域网可见，注意保管）
+    baseUrl: 'https://api.deepseek.com/v1',
+    model: 'deepseek-flash',
+    modelUrl: '/live2d-models/mao_pro/runtime/mao_pro.model3.json',
+    temperature: 0.7,
+    charScale: 0.62,
+    tts: false,
+    edgeVoice: 'zh-CN-XiaoxiaoNeural',
+    pitch: 0,
+    rate: 1,
+    volume: 1,
+    systemPrompt: '你是一个住在网页里的可爱 Live2D 虚拟少女，性格元气、机灵、偶尔傲娇。'
+      + '回答要简洁口语化（一般 1~3 句），可以适当用颜文字，但不啰嗦。'
+      + '用户问技术问题时给出准确简短的答案。'
+  };
+  let settings = { ...DEFAULTS };
+  try { settings = { ...DEFAULTS, ...JSON.parse(localStorage.getItem(LS_SET) || '{}') }; } catch (e) {}
+  let history = [];
+  try { history = JSON.parse(localStorage.getItem(LS_HIST) || '[]'); if (!Array.isArray(history)) history = []; } catch (e) {}
+
+  const saveSettings = () => localStorage.setItem(LS_SET, JSON.stringify(settings));
+  const saveHistory = () => { try { localStorage.setItem(LS_HIST, JSON.stringify(history.slice(-100))); } catch (e) {} };
+
+  /* ---------------- 舞台定位 / 拖拽 / 滚轮缩放 ---------------- */
+  const stage = $('vt-stage'), canvas = $('vt-canvas'), badge = $('vt-badge');
+  const W = 340, H = 460;
+  let layout = { x: null, y: null };
+  try { layout = { ...layout, ...JSON.parse(localStorage.getItem(LS_LAYOUT) || '{}') }; } catch (e) {}
+
+  function clampLayout() {
+    layout.x = Math.max(4, Math.min(innerWidth - W - 4, layout.x));
+    layout.y = Math.max(4, Math.min(innerHeight - 80, layout.y));
+  }
+  function applyLayout() {
+    if (layout.x == null) layout.x = innerWidth - W - 24;
+    if (layout.y == null) layout.y = innerHeight - H - 24;
+    clampLayout();
+    stage.style.left = layout.x + 'px'; stage.style.top = layout.y + 'px';
+  }
+  applyLayout();
+  addEventListener('resize', () => { clampLayout(); applyLayout(); });
+
+  let drag = null, dragDist = 0;
+  stage.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.vt-panel') || e.target.closest('#vt-btns')) return;
+    drag = { sx: e.clientX, sy: e.clientY, ox: layout.x, oy: layout.y };
+    dragDist = 0;
+    stage.setPointerCapture(e.pointerId);
+    stage.classList.add('vt-dragging');
+  });
+  stage.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    dragDist = Math.hypot(dx, dy);
+    if (dragDist > 6) {
+      layout.x = drag.ox + dx; layout.y = drag.oy + dy;
+      clampLayout();
+      stage.style.left = layout.x + 'px'; stage.style.top = layout.y + 'px';
+    }
+  });
+  const endDrag = () => {
+    if (!drag) return;
+    drag = null;
+    stage.classList.remove('vt-dragging');
+    if (dragDist > 6) localStorage.setItem(LS_LAYOUT, JSON.stringify(layout));
+  };
+  stage.addEventListener('pointerup', endDrag);
+  stage.addEventListener('pointercancel', endDrag);
+
+  let saveZoomTimer = null;
+  stage.addEventListener('wheel', (e) => {
+    if (e.target.closest('.vt-panel')) return;
+    e.preventDefault();
+    settings.charScale = Math.max(0.3, Math.min(0.95, settings.charScale - Math.sign(e.deltaY) * 0.05));
+    applyScale();
+    $('vt-scale').value = settings.charScale;
+    clearTimeout(saveZoomTimer);
+    saveZoomTimer = setTimeout(saveSettings, 400);
+  }, { passive: false });
+
+  /* ---------------- PIXI + Live2D ---------------- */
+  const app = new PIXI.Application({
+    view: canvas, width: W, height: H, backgroundAlpha: 0,
+    autoDensity: true, resolution: Math.min(devicePixelRatio || 1, 2),
+    antialias: true,
+  });
+  let model = null, mouth = 0, speaking = false, audioRef = null;
+
+  function applyScale() {
+    if (!model) return;
+    const oh = model.internalModel.originalHeight || model.internalModel.height;
+    if (oh) model.scale.set((H * settings.charScale) / oh);
+    // 居中定位：anchor 是 ObservablePoint 属性，用 .set()（无 anchor 时回退 bounds 计算）
+    try {
+      model.anchor.set(0.5, 0.5);
+      model.position.set(W / 2, H / 2);
+    } catch (e) {
+      model.position.set(W / 2 - model.width / 2, H / 2 - model.height / 2);
+    }
+  }
+
+  async function initModel() {
+    badge.textContent = '加载角色…';
+    const Model = (window.PIXI && PIXI.live2d && PIXI.live2d.Live2DModel)
+      ? PIXI.live2d.Live2DModel : null;
+    if (!Model) throw new Error('Live2D 库未加载（检查 /libs 三个脚本）');
+    model = await Model.from(settings.modelUrl, { autoInteract: false });
+    app.stage.addChild(model);
+    applyScale();
+    try {
+      model.internalModel.hitAreas.forEach(a => { if (!a.name) a.name = a.id; });
+    } catch (e) {}
+    try {
+      model.internalModel.on('beforeModelUpdate', () => {
+        try { model.internalModel.coreModel.setParameterValueById('ParamA', mouth); } catch (e) {}
+      });
+    } catch (e) {}
+    app.ticker.add(() => {
+      const target = speaking ? 0.15 + 0.72 * Math.abs(Math.sin(performance.now() * 0.02)) : 0;
+      mouth += (target - mouth) * 0.45;
+    });
+    badge.style.display = 'none';
+    react('hello');
+  }
+
+  /* ---------------- 点击交互 ---------------- */
+  const HEAD_LINES = ['摸摸头～', '嘿嘿，好痒啦', '再摸头发要乱咯', '唔…好舒服', '谁在摸我！'];
+  const BODY_LINES = ['呀！别戳', '肚子不可以随便碰！', '哇！干嘛啦～', '痒痒痒！', '再戳要生气了哦(｀ω´)'];
+  const HELLO_LINES = ['你来啦～', '今天也要元气满满哦！', '想我了就点我一下下～'];
+
+  function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+
+  function react(kind) {
+    if (!model) return;
+    try { model.expression('exp_0' + (1 + Math.floor(Math.random() * 8))); } catch (e) {}
+    if (kind === 'body') {
+      try { model.motion(''); } catch (e) {
+        try {
+          const groups = model.internalModel.motionManager.definitions || {};
+          const g = Object.keys(groups).find(k => k && k !== 'Idle');
+          if (g) model.motion(g);
+        } catch (e2) {}
+      }
+    }
+    const line = kind === 'head' ? pick(HEAD_LINES) : kind === 'body' ? pick(BODY_LINES) : pick(HELLO_LINES);
+    localBubble(line);
+    speak(line);
+  }
+
+  initModel().then(() => {
+    model.interactive = true;
+    model.on('pointertap', (e) => {
+      if (dragDist > 8) return;
+      let areas = [];
+      try { areas = model.hitTest(e.data.global.x, e.data.global.y) || []; } catch (err) {}
+      const head = areas.some(a => /head/i.test(a));
+      react(head ? 'head' : 'body');
+    });
+  }).catch(err => {
+    badge.style.display = '';
+    badge.textContent = '角色加载失败';
+    console.error('[vtuber] 模型加载失败:', err);
+  });
+
+  /* ---------------- TTS + 嘴型 ---------------- */
+  function speak(text, force) {
+    if (!force && !settings.tts) return;
+    const t = String(text).slice(0, 300);
+    try {
+      if (audioRef) { audioRef.pause(); audioRef = null; }
+      if ('speechSynthesis' in window) speechSynthesis.cancel();
+    } catch (e) {}
+    fetch('/api/tts', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: t,
+        voice: settings.edgeVoice || 'zh-CN-XiaoxiaoNeural',
+        rate: Math.round((settings.rate || 1) * 100),
+        pitch: Math.round(settings.pitch || 0),
+        volume: Math.round((settings.volume == null ? 1 : settings.volume) * 100),
+      })
+    }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = new Audio(url);
+        audioRef = a;
+        a.onplay = () => { speaking = true; };
+        a.onended = a.onerror = () => { speaking = false; URL.revokeObjectURL(url); if (audioRef === a) audioRef = null; };
+        a.play().catch(() => { speaking = false; });
+      })
+      .catch(() => speakLocal(t));
+  }
+  function speakLocal(text) {
+    if (!('speechSynthesis' in window)) return;
+    try {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'zh-CN';
+      u.rate = settings.rate; u.volume = settings.volume;
+      u.onstart = () => { speaking = true; };
+      u.onend = u.onerror = () => { speaking = false; };
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  /* ---------------- 聊天 ---------------- */
+  const msgs = $('vt-msgs'), input = $('vt-input'), sendBtn = $('vt-send');
+  const chatPanel = $('vt-chat'), setPanel = $('vt-settings');
+
+  function scrollBottom() { msgs.scrollTop = msgs.scrollHeight; }
+  function addMsg(role, text, err) {
+    const el = document.createElement('div');
+    el.className = 'vt-msg ' + role + (err ? ' vt-err' : '');
+    el.textContent = text;
+    msgs.appendChild(el);
+    scrollBottom();
+    return el;
+  }
+  function localBubble(text) {
+    const el = addMsg('ai', text);
+    setTimeout(() => { el.style.transition = 'opacity 1s'; el.style.opacity = '.45'; }, 6000);
+  }
+  function typeOut(el, text) {
+    return new Promise(res => {
+      let i = 0;
+      const cur = document.createElement('span'); cur.className = 'vt-cursor';
+      el.textContent = ''; el.appendChild(cur);
+      const step = Math.max(1, Math.round(text.length / 220));
+      const timer = setInterval(() => {
+        i = Math.min(text.length, i + step);
+        el.textContent = text.slice(0, i);
+        el.appendChild(cur);
+        scrollBottom();
+        if (i >= text.length) { clearInterval(timer); cur.remove(); res(); }
+      }, 42);
+    });
+  }
+
+  function renderHistory() {
+    msgs.innerHTML = '';
+    history.slice(-30).forEach(m => addMsg(m.role === 'user' ? 'user' : 'ai', m.content));
+    if (!history.length) addMsg('ai', '你好呀！我是你的虚拟管家。点我头或身体有惊喜，齿轮里可以改 API 和人设～');
+    scrollBottom();
+  }
+  renderHistory();
+
+  let busy = false;
+
+  /* ---- 塔台指令联动（本地规则引擎：语音/文字命中即执行，不依赖大模型） ---- */
+  async function towerPost(path, body) {
+    const r = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {}),
+    });
+    return r.json();
+  }
+  const TOWER_CMDS = [
+    { keys: ['急停', '紧急停'], icon: '🛑', label: '急停', done: '急停指令已发出，电机已停转',
+      run: () => towerPost('/api/uav/cmd', { cmd: 'emergency' }) },
+    { keys: ['起飞', '飞起来', '升空'], icon: '🚁', label: '起飞', done: '已发出起飞指令，无人机升空中',
+      run: () => towerPost('/api/uav/cmd', { cmd: 'takeoff' }) },
+    { keys: ['降落', '落地', '降下来', '下来'], icon: '🛬', label: '降落', done: '已发出降落指令，无人机返航降落中',
+      run: () => towerPost('/api/uav/cmd', { cmd: 'land' }) },
+    { keys: ['试飞'], icon: '🛫', label: 'AI试飞', done: 'AI 试飞已启动：起飞→3 秒→自动降落',
+      run: () => towerPost('/api/uav/flight-test', {}) },
+    { keys: ['巡逻'], icon: '🛰️', label: '巡逻', done: '全屋巡逻任务已派发，无人机/单元待命执行',
+      run: () => towerPost('/api/mission', { type: 'patrol', target: '全屋巡逻' }) },
+    { keys: ['扫描'], icon: '📡', label: '扫描', done: '卧室三维扫描已开始，点云采集中',
+      run: () => towerPost('/api/kinect/scan/start', {}) },
+  ];
+  const KINECT_RE = /kinect|摄像|视觉|相机|镜头/i;
+  function matchTowerCommand(text) {
+    const t = text.trim();
+    if (KINECT_RE.test(t)) {
+      if (/关|停/.test(t)) return { icon: '📷', label: '关闭 Kinect', done: 'Kinect 视觉链路已关闭（守护不再自动拉起）',
+        run: () => towerPost('/api/kinect/power', { on: false }) };
+      if (/开|启|启动/.test(t)) return { icon: '📷', label: '开启 Kinect', done: 'Kinect 已开启，视觉链路 15 秒内自动拉起',
+        run: () => towerPost('/api/kinect/power', { on: true }) };
+    }
+    for (const c of TOWER_CMDS) {
+      if (c.keys.some(k => t.includes(k))) return c;
+    }
+    return null;
+  }
+
+  async function send() {
+    const text = input.value.trim();
+    if (!text || busy) return;
+    busy = true; sendBtn.disabled = true;
+    input.value = '';
+    addMsg('user', text);
+    // 塔台指令联动：命中规则直接执行（不依赖 DeepSeek，语音/文字都能触发）
+    const cmd = matchTowerCommand(text);
+    if (cmd) {
+      const el = addMsg('ai', '');
+      try {
+        const r = await cmd.run();
+        const msg = `${cmd.icon} ${cmd.done}${r && r.msg ? '：' + r.msg : ''}`;
+        await typeOut(el, msg);
+        speak(msg);
+      } catch (e) {
+        el.classList.add('vt-err');
+        el.textContent = `${cmd.label}执行失败：${e.message}`;
+      } finally {
+        busy = false; sendBtn.disabled = false; scrollBottom();
+      }
+      return;
+    }
+    if (!settings.apiKey) {
+      addMsg('ai', '还没填 API Key 哦～点右下角 ⚙️ 设置，把豆包（火山方舟）的 Key 粘贴进去就能聊天啦。', true);
+      input.value = '';
+      busy = false; sendBtn.disabled = false;
+      return;
+    }
+    history.push({ role: 'user', content: text }); saveHistory();
+    const think = addMsg('ai', '…');
+    think.classList.add('vt-cursor');
+    try {
+      const r = await fetch('/api/llm/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-LLM-Key': settings.apiKey,
+          'X-LLM-Base': settings.baseUrl,
+          'X-LLM-Model': settings.model,
+        },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: settings.systemPrompt },
+            ...history.slice(-17, -1),
+            { role: 'user', content: text },
+          ],
+          temperature: settings.temperature,
+        }),
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.msg || ('HTTP ' + r.status));
+      think.classList.remove('vt-cursor');
+      speak(d.reply);
+      await typeOut(think, d.reply);
+      history.push({ role: 'assistant', content: d.reply }); saveHistory();
+      try { model.expression('exp_0' + (1 + Math.floor(Math.random() * 8))); } catch (e) {}
+    } catch (err) {
+      think.classList.remove('vt-cursor');
+      think.classList.add('vt-err');
+      think.textContent = '连接失败：' + err.message;
+    } finally {
+      busy = false; sendBtn.disabled = false;
+      scrollBottom();
+    }
+  }
+  sendBtn.addEventListener('click', send);
+
+  /* ---- 连续语音听写（Open-LLM-VTuber 同款体验）----
+     麦克风按钮 = 开关。开启后持续监听：音量门限(VAD)自动断句，
+     说完停顿 ~1.2 秒自动识别 → 自动发送（可触发塔台指令）。
+     小灵播报 TTS 时暂停判定，防止自听回声。 */
+  const micBtn = $('vt-mic');
+  let micOn = false, micCtx = null, micStream = null, micProc = null;
+  let vadSeg = [], vadPre = [], vadTalking = false, vadQuietMs = 0, vadSegMs = 0, recognizing = false;
+  const VAD_TH = 0.018;      // RMS 说话阈值
+  const VAD_STOP_MS = 1200;  // 静音多久判定说完
+  const VAD_MIN_MS = 350;    // 短于此忽略（防环境杂音误触发）
+
+  micBtn.addEventListener('click', () => { micOn ? stopMic() : startMic(); });
+
+  async function startMic() {
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
+      });
+    } catch (e) {
+      addMsg('sys', '麦克风不可用：' + (e.name === 'NotAllowedError' ? '浏览器拒绝了权限，请在地址栏允许麦克风' : e.message), true);
+      return;
+    }
+    micCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+    const src = micCtx.createMediaStreamSource(micStream);
+    micProc = micCtx.createScriptProcessor(4096, 1, 1);
+    micProc.onaudioprocess = (e) => {
+      const f32 = e.inputBuffer.getChannelData(0);
+      if (speaking) { vadSeg = []; vadPre = []; vadTalking = false; return; }  // 小灵说话时不听
+      let sum = 0;
+      for (let i = 0; i < f32.length; i++) sum += f32[i] * f32[i];
+      const rms = Math.sqrt(sum / f32.length);
+      const frameMs = f32.length / 16;  // 16kHz
+      if (rms > VAD_TH) {
+        if (!vadTalking) { vadTalking = true; vadSeg = vadPre.slice(); vadSegMs = 0; }
+        vadQuietMs = 0;
+      } else if (vadTalking) {
+        vadQuietMs += frameMs;
+      }
+      if (!vadTalking) {
+        vadPre.push(new Float32Array(f32));              // 预滚动：保留最近 ~0.5s 作开头
+        let ms = 0; const keep = [];
+        for (let i = vadPre.length - 1; i >= 0 && ms < 500; i--) { keep.unshift(vadPre[i]); ms += vadPre[i].length / 16; }
+        vadPre = keep;
+      } else {
+        vadSeg.push(new Float32Array(f32)); vadSegMs += frameMs;
+        if (vadQuietMs >= VAD_STOP_MS && !recognizing) {
+          const seg = vadSeg; const segMs = vadSegMs;
+          vadSeg = []; vadPre = []; vadTalking = false; vadQuietMs = 0;
+          if (segMs >= VAD_MIN_MS) recognizePcm(seg);    // 说完了 → 识别
+        }
+      }
+    };
+    src.connect(micProc); micProc.connect(micCtx.destination);
+    micOn = true;
+    micBtn.classList.add('rec'); micBtn.textContent = '🎙'; micBtn.title = '连续听写中，点击关闭';
+    addMsg('sys', '连续听写已开启：直接说话，停顿约 1 秒自动识别发送。说"起飞/降落/急停/巡逻/扫描"可直接指挥塔台。');
+  }
+
+  function stopMic() {
+    try { if (micProc) { micProc.disconnect(); micProc = null; } if (micCtx) { micCtx.close(); micCtx = null; } } catch (e) {}
+    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+    vadSeg = []; vadPre = []; vadTalking = false;
+    micOn = false;
+    micBtn.classList.remove('rec'); micBtn.textContent = '🎤'; micBtn.title = '点击开启连续听写';
+  }
+
+  async function recognizePcm(segments) {
+    recognizing = true;
+    micBtn.textContent = '…';
+    try {
+      let n = 0; segments.forEach(s => n += s.length);
+      const i16 = new Int16Array(n);
+      let o = 0;
+      segments.forEach(s => {
+        for (let i = 0; i < s.length; i++) {
+          const v = Math.max(-1, Math.min(1, s[i]));
+          i16[o++] = v < 0 ? v * 0x8000 : v * 0x7FFF;
+        }
+      });
+      const wav = new ArrayBuffer(44 + i16.length * 2);
+      const v = new DataView(wav);
+      const ws = (off, s) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)); };
+      ws(0, 'RIFF'); v.setUint32(4, 36 + i16.length * 2, true); ws(8, 'WAVE');
+      ws(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+      ws(36, 'data'); v.setUint32(40, i16.length * 2, true);
+      new Int16Array(wav, 44).set(i16);
+      const r = await fetch('/api/asr', { method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: wav });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.msg || ('HTTP ' + r.status));
+      if (d.text && d.text.replace(/[，。？！,\.\?!]/g, '').trim()) {
+        input.value = d.text;
+        send();
+      }
+    } catch (e) {
+      addMsg('sys', '语音识别失败：' + e.message, true);
+    } finally {
+      recognizing = false;
+      if (micOn) micBtn.textContent = '🎙';
+    }
+  }
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+
+  /* ---------------- 面板开关 ---------------- */
+  function placePanel(panel) {
+    const left = layout.x > (panel.offsetWidth || 340) + 30;
+    panel.style.left = left ? (-(panel.offsetWidth) - 10) + 'px' : (W + 10) + 'px';
+    panel.style.right = 'auto';
+  }
+  function togglePanel(panel) {
+    const other = panel === chatPanel ? setPanel : chatPanel;
+    other.hidden = true;
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) placePanel(panel);
+  }
+  $('vt-chat-btn').addEventListener('click', () => { togglePanel(chatPanel); if (!chatPanel.hidden) input.focus(); });
+  $('vt-set-btn').addEventListener('click', () => togglePanel(setPanel));
+  document.querySelectorAll('.vt-x').forEach(b =>
+    b.addEventListener('click', () => $(b.dataset.close).hidden = true));
+
+  /* ---------------- 设置面板 ---------------- */
+  const S = {
+    key: $('vt-key'), base: $('vt-base'), model: $('vt-model'), modelUrl: $('vt-model-url'),
+    temp: $('vt-temp'), tempV: $('vt-temp-v'), scale: $('vt-scale'),
+    tts: $('vt-tts'), voice: $('vt-voice'), rate: $('vt-rate'), rateV: $('vt-rate-v'),
+    pitch: $('vt-pitch'), pitchV: $('vt-pitch-v'),
+    vol: $('vt-vol'), volV: $('vt-vol-v'), prompt: $('vt-prompt'),
+  };
+  function loadSettingsUI() {
+    S.key.value = settings.apiKey; S.base.value = settings.baseUrl;
+    S.model.value = settings.model; S.modelUrl.value = settings.modelUrl;
+    S.temp.value = settings.temperature; S.tempV.textContent = settings.temperature;
+    S.scale.value = settings.charScale;
+    S.tts.checked = settings.tts;
+    S.rate.value = settings.rate; S.rateV.textContent = settings.rate;
+    S.pitch.value = settings.pitch; S.pitchV.textContent = settings.pitch;
+    S.vol.value = settings.volume; S.volV.textContent = settings.volume;
+    S.prompt.value = settings.systemPrompt;
+    fillVoices();
+  }
+  function fillVoices() {
+    // 音色列表来自塔台 /api/tts/voices（edge-tts 神经网络音色，同款 Open-LLM-VTuber）
+    fetch('/api/tts/voices').then(r => r.json()).then(list => {
+      S.voice.innerHTML = '';
+      list.forEach(v => {
+        const o = document.createElement('option');
+        o.value = v.id; o.textContent = v.label;
+        if (v.id === settings.edgeVoice) o.selected = true;
+        S.voice.appendChild(o);
+      });
+    }).catch(() => { S.voice.innerHTML = '<option>音色列表加载失败（塔台未启动？）</option>'; });
+  }
+  loadSettingsUI();
+
+  S.temp.addEventListener('input', () => S.tempV.textContent = S.temp.value);
+  S.rate.addEventListener('input', () => S.rateV.textContent = S.rate.value);
+  S.pitch.addEventListener('input', () => S.pitchV.textContent = S.pitch.value);
+  S.vol.addEventListener('input', () => S.volV.textContent = S.vol.value);
+  S.scale.addEventListener('input', () => { settings.charScale = +S.scale.value; applyScale(); });
+
+  $('vt-save').addEventListener('click', () => {
+    settings.apiKey = S.key.value.trim();
+    settings.baseUrl = S.base.value.trim() || DEFAULTS.baseUrl;
+    settings.model = S.model.value.trim() || DEFAULTS.model;
+    settings.temperature = +S.temp.value;
+    settings.charScale = +S.scale.value;
+    settings.tts = S.tts.checked;
+    settings.edgeVoice = S.voice.value; settings.pitch = +S.pitch.value;
+    settings.rate = +S.rate.value;
+    settings.volume = +S.vol.value;
+    settings.systemPrompt = S.prompt.value.trim() || DEFAULTS.systemPrompt;
+    if (S.modelUrl.value.trim() && S.modelUrl.value.trim() !== settings.modelUrl) {
+      settings.modelUrl = S.modelUrl.value.trim();
+      saveSettings();
+      location.reload();
+      return;
+    }
+    saveSettings();
+    applyScale();
+    const b = $('vt-save'); b.textContent = '已保存 ✓';
+    setTimeout(() => b.textContent = '保存设置', 1200);
+  });
+  $('vt-clear-hist').addEventListener('click', () => {
+    history = []; saveHistory(); renderHistory();
+  });
+  // TTS 勾选立即生效（不必先点"保存设置"）；试听按钮无视开关直接发声用于验证
+  S.tts.addEventListener('change', () => {
+    settings.tts = S.tts.checked; saveSettings();
+    if (settings.tts) speak('语音播报已开启。', true);
+  });
+  $('vt-tts-test').addEventListener('click', () => {
+    speak('语音测试：我是小灵，塔台虚拟管家。', true);
+  });
+})();
+</script>
+<!-- ====== VTuber 组件结束 ====== -->
+
+<!-- ↓↓↓ 这里是你自己的网页内容（仅演示占位）↓↓↓ -->
+<div style="max-width:720px; margin:0 auto; padding:60px 20px;">
+  <h2 style="color:#e8f5f0;">你的网页内容区域</h2>
+  <p>VTuber 组件悬浮在右下角，不影响本页任何布局。</p>
+  <ul style="line-height:2">
+    <li>角色可拖动（按住拖）、滚轮缩放、点击头/身体有不同反应</li>
+    <li>💬 聊天：DeepSeek V4.1-Flash 接入（可在设置里换任意 OpenAI 兼容 API），带打字机动画</li>
+    <li>⚙️ 设置：Key / 模型 / 人设 / 角色大小 / TTS 音色，全部本机持久化</li>
+  </ul>
+</div>
+</body>
+</html>

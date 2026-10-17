@@ -1,0 +1,5 @@
+{
+  "tello_ip": "192.168.10.1",
+  "tello_ssid": "TELLO-5896C7",
+  "_note": "模拟模式：指向本机 mock_tello.py。切回真机把 tello_ip 改回 192.168.10.1 并重启塔台。"
+}

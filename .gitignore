@@ -1,0 +1,83 @@
+﻿# secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+**/secrets/
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.envrc
+
+# logs / runtime
+*.log
+bridge_svc.log
+*.part
+_drone_debug/
+.workbuddy/
+.trae-html-share-packages/
+.superpowers/
+
+# backups from today's patches
+**/bak_*/
+**/*.bak_*
+**/*_bak_*
+tower_ui/server.py.bak-*
+tower_ui/web/*.bak_*
+
+# heavy ML weights (keep dedicated Tello score weights)
+weights/
+models/
+*.pt
+!datasets/tello_kinect/weights/tello_yolov8n_score.pt
+!datasets/tello_kinect/exports/tello_n_score/weights/best.pt
+yolov8*.pt
+*.pth
+*.onnx
+*.engine
+
+# datasets: keep labels/scripts, drop bulky raw if present
+datasets/**/images/
+datasets/**/runs/
+datasets/**/exports/**/weights/last.pt
+datasets/**/exports/**/weights/epoch*.pt
+
+# remotion / promo binaries
+remotion-videos/node_modules/
+remotion-videos/output/
+remotion-videos/.cache/
+promo/**/*.mp4
+promo/**/*.mov
+
+# large 3d / textures optional keep glb under 50mb - ignore huge blend/npz
+*.blend
+*.blend1
+room_leveled.npz
+tex_sr5_*.png
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# vendor deps (keep thin copies only if needed)
+tower_ui/web/vendor/node_modules/
+**/node_modules/
+
+# nested git / proxy
+xiaozhi-mcp-proxy/
+
+# scratch / captures
+_live_*.jpg
+_patrol_*.err
+*.err
+cloud1_*.png
+test_drone_images/

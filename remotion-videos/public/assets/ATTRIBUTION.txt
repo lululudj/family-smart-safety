@@ -1,0 +1,15 @@
+=== Music Attribution ===
+Generated: 2026-10-09T11:43:40.820Z
+Source: ccMixter (https://ccmixter.org)
+
+"Sharing is Caring (Twitter A Cappella)" by itsDanBull
+  Source: https://ccmixter.org/files/itsDanBull/36829
+  License: Attribution (3.0) (http://creativecommons.org/licenses/by/3.0/)
+
+"On The Moon (Trip Hop mix)" by disharmonic
+  Source: https://ccmixter.org/files/disharmonic/2958
+  License: Attribution (http://creativecommons.org/licenses/by/2.5/)
+
+---
+All tracks sourced from ccMixter under Creative Commons licenses.
+Please include this attribution when publishing your video.

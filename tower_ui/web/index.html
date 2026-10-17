@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1014">
+<meta http-equiv="Cache-Control" content="no-store">
+<title>Ganglion Tower | 家庭安全调度中心</title>
+<style>
+  :root {
+    --bg: #0b1014;
+    --sidebar: #0d1419;
+    --surface: #111a20;
+    --surface-2: #162229;
+    --surface-3: #1b2b32;
+    --line: #2a3b42;
+    --line-soft: #203038;
+    --text: #edf3f2;
+    --muted: #93a5a8;
+    --faint: #687b80;
+    --mint: #4dd6b7;
+    --mint-soft: rgba(77, 214, 183, .12);
+    --amber: #eab85a;
+    --amber-soft: rgba(234, 184, 90, .12);
+    --red: #ed7770;
+    --red-soft: rgba(237, 119, 112, .12);
+    --blue: #82a9d8;
+    --violet: #aaa6db;
+  }
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    letter-spacing: 0;
+  }
+  button, input { font: inherit; }
+  button { color: inherit; }
+  button:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+  button:disabled { cursor: not-allowed; opacity: .48; }
+  .app { min-height: 100vh; display: grid; grid-template-columns: 228px minmax(0, 1fr); }
+  .sidebar { display: flex; flex-direction: column; gap: 28px; padding: 24px 15px 18px; background: var(--sidebar); border-right: 1px solid var(--line-soft); }
+  .brand { display: flex; align-items: center; gap: 11px; padding: 0 10px; }
+  .brand-mark { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid #3c9c87; border-radius: 7px; color: var(--mint); background: var(--mint-soft); font-weight: 750; }
+  .brand-name { font-size: 15px; font-weight: 750; letter-spacing: .03em; }
+  .brand-sub { margin-top: 3px; color: var(--faint); font-size: 9px; letter-spacing: .14em; }
+  .nav-group { display: grid; gap: 5px; }
+  .nav-label { padding: 0 12px 5px; color: var(--faint); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+  .nav-item { display: flex; align-items: center; gap: 11px; width: 100%; min-height: 40px; padding: 0 12px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--muted); text-align: left; cursor: pointer; }
+  .nav-item:hover { background: var(--surface); color: var(--text); }
+  .nav-item.active { background: var(--surface-2); border-color: var(--line); color: var(--text); }
+  .nav-icon { width: 15px; color: var(--faint); text-align: center; }
+  .nav-item.active .nav-icon { color: var(--mint); }
+  .sidebar-spacer { flex: 1; }
+  .node-box { padding: 12px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); }
+  .node-box-head { display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; }
+  .node-box-state { display: flex; align-items: center; gap: 7px; margin-top: 9px; font-size: 12px; }
+  .sidebar-version { padding: 0 10px; color: var(--faint); font-size: 10px; }
+  .main { width: 100%; max-width: 1760px; min-width: 0; padding: 22px 28px 28px; }
+  .mobile-bar { display: none; }
+  .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 22px; margin-bottom: 20px; }
+  .eyebrow { color: var(--mint); font-size: 10px; letter-spacing: .15em; text-transform: uppercase; }
+  h1 { margin: 6px 0 0; font-size: 23px; letter-spacing: -.02em; }
+  .subtitle { margin-top: 5px; color: var(--muted); font-size: 12px; }
+  .top-right { display: flex; align-items: center; gap: 10px; }
+  .chip { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--muted); font-size: 10px; white-space: nowrap; }
+  .chip strong { color: var(--text); font-size: 11px; font-weight: 650; }
+  .clock { padding-left: 14px; border-left: 1px solid var(--line); color: var(--text); font-size: 16px; font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; }
+  .clock-date { margin-top: 3px; color: var(--muted); font-size: 10px; font-weight: 400; }
+  .dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--faint); }
+  .dot.ok { background: var(--mint); box-shadow: 0 0 0 4px var(--mint-soft); }
+  .dot.warn { background: var(--amber); box-shadow: 0 0 0 4px var(--amber-soft); }
+  .dot.bad { background: var(--red); box-shadow: 0 0 0 4px var(--red-soft); }
+  .dot.small { width: 5px; height: 5px; box-shadow: none; }
+  .notice { display: flex; align-items: center; gap: 12px; min-height: 43px; padding: 10px 13px; margin-bottom: 14px; border: 1px solid var(--line); border-left: 3px solid var(--faint); border-radius: 5px; background: var(--surface); }
+  .notice.warn { border-color: #5f4e2b; border-left-color: var(--amber); background: var(--amber-soft); }
+  .notice.bad { border-color: #643b39; border-left-color: var(--red); background: var(--red-soft); }
+  .notice.ok { border-color: #2d6559; border-left-color: var(--mint); background: var(--mint-soft); }
+  .notice-label { flex: none; color: var(--muted); font-size: 11px; font-weight: 700; }
+  .notice-text { min-width: 0; flex: 1; color: var(--muted); font-size: 12px; line-height: 1.5; }
+  .notice-action { flex: none; border: 0; background: transparent; color: var(--mint); font-size: 11px; cursor: pointer; }
+  .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .metric { position: relative; min-width: 0; padding: 14px 15px; overflow: hidden; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); }
+  .metric::before { content: ""; position: absolute; inset: 0 0 auto; height: 2px; background: var(--line); }
+  .metric:nth-child(1)::before, .metric:nth-child(2)::before { background: var(--mint); }
+  .metric:nth-child(3)::before { background: var(--blue); }
+  .metric:nth-child(4)::before { background: var(--violet); }
+  .metric-head { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 11px; }
+  .metric-value { margin-top: 9px; color: var(--text); font-size: 22px; font-weight: 750; font-variant-numeric: tabular-nums; }
+  .metric-value small { color: var(--muted); font-size: 11px; font-weight: 400; }
+  .metric-meta { min-height: 16px; margin-top: 4px; overflow: hidden; color: var(--faint); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+  .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(320px, .7fr); gap: 12px; align-items: start; }
+  .panel { min-width: 0; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); overflow: hidden; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 14px 16px; border-bottom: 1px solid var(--line-soft); }
+  .panel-title { color: var(--text); font-size: 13px; font-weight: 700; }
+  .panel-caption { margin-top: 4px; color: var(--muted); font-size: 10px; }
+  .panel-link { border: 0; background: transparent; color: var(--mint); font-size: 10px; cursor: pointer; }
+  .video-panel { grid-column: 1; grid-row: 1; }
+  .video-actions, .control-actions { display: flex; gap: 7px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 34px; padding: 0 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface-2); color: var(--text); cursor: pointer; font-size: 11px; }
+  .btn:hover:not(:disabled) { border-color: #48616a; background: var(--surface-3); }
+  .btn.primary { border-color: var(--mint); background: var(--mint); color: #081513; font-weight: 700; }
+  .btn.danger { border-color: var(--red); background: var(--red); color: #230f0d; font-weight: 750; }
+  .btn.busy { color: var(--amber); border-color: #705d32; background: var(--amber-soft); }
+  .video-stage { position: relative; display: grid; place-items: center; aspect-ratio: 16 / 9; min-height: 280px; margin: 16px; border: 1px solid var(--line); background: #070d10; overflow: hidden; }
+  .video-stage img { display: none; width: 100%; height: 100%; object-fit: contain; }
+  .video-placeholder { max-width: 430px; padding: 24px; color: var(--muted); font-size: 12px; line-height: 1.8; text-align: center; }
+  .video-placeholder strong { display: block; margin-bottom: 4px; color: var(--text); font-size: 13px; }
+  .video-overlay { position: absolute; inset: 0; display: none; align-items: flex-end; justify-content: space-between; padding: 11px; pointer-events: none; }
+  .video-overlay.show { display: flex; }
+  .video-tag { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 4px; background: rgba(9, 15, 18, .88); color: var(--muted); font-size: 10px; }
+  .vision-badge { position: absolute; top: 10px; right: 10px; display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 4px; background: rgba(9, 15, 18, .9); color: var(--muted); font-size: 10px; }
+  .vision-badge.active { border-color: #2d6559; color: var(--text); }
+  .vision-badge.alert { border-color: #713a38; color: #f6c1bd; }
+  .video-foot { display: flex; justify-content: space-between; gap: 12px; padding: 0 16px 14px; color: var(--faint); font-size: 10px; }
+  .video-foot span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kinect-panel { grid-column: 1; grid-row: 3; }
+  .kinect-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 15px 16px 12px; }
+  .kinect-grid-single { grid-template-columns: minmax(0, 1fr); }
+  .kinect-view { position: relative; min-width: 0; aspect-ratio: 16 / 9; border: 1px solid var(--line); background: #070d10; overflow: hidden; }
+  .kinect-view img { display: none; width: 100%; height: 100%; object-fit: contain; }
+  .kinect-view-label { position: absolute; left: 9px; bottom: 8px; padding: 4px 7px; border: 1px solid var(--line); border-radius: 4px; background: rgba(9, 15, 18, .88); color: var(--muted); font-size: 10px; }
+  .kinect-empty { display: grid; place-items: center; height: 100%; padding: 15px; color: var(--faint); font-size: 10px; text-align: center; }
+  .kinect-foot { display: flex; justify-content: space-between; gap: 12px; padding: 0 16px 14px; color: var(--faint); font-size: 10px; }
+  .kinect-foot span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kinect-motion { display: grid; gap: 6px; padding: 11px 16px 12px; border-top: 1px solid var(--line-soft); }
+  .vision-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .motion-head { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 10px; }
+  .motion-head strong { color: var(--mint); font-weight: 650; }
+  .motion-head span:last-child { margin-left: auto; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .motion-bar { height: 4px; border-radius: 99px; background: #29363b; overflow: hidden; }
+  .motion-bar i { display: block; width: 0; height: 100%; background: var(--mint); transition: width .2s; }
+  .motion-bar.warn i { background: var(--amber); }
+  .motion-bar.bad i { background: var(--red); }
+  .motion-objects { color: var(--faint); font-size: 10px; line-height: 1.6; }
+  .motion-objects b { color: var(--text); font-weight: 600; }
+  .motion-objects .obj { margin-right: 10px; white-space: nowrap; }
+  .rail { display: grid; gap: 12px; grid-column: 2; grid-row: 1 / span 2; }
+  .device-list { display: grid; gap: 8px; padding: 13px 14px 14px; }
+  .device { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 10px; border: 1px solid var(--line-soft); border-radius: 4px; background: var(--surface-2); }
+  .device-icon { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); background: var(--surface-3); font-size: 14px; }
+  .device-icon.ok { border-color: #2d6559; color: var(--mint); background: var(--mint-soft); }
+  .device-name { color: var(--text); font-size: 11px; font-weight: 700; }
+  .device-meta { margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.45; }
+  .device-state { display: inline-flex; align-items: center; gap: 5px; color: var(--faint); font-size: 10px; white-space: nowrap; }
+  .device-state.ok { color: var(--mint); }
+  .device-state.warn { color: var(--amber); }
+  .device-state.bad { color: var(--red); }
+  .device-details { grid-column: 2 / 4; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 12px; margin-top: 2px; color: var(--faint); font-size: 10px; }
+  .detail { min-width: 0; display: flex; justify-content: space-between; gap: 7px; }
+  .detail b { color: var(--muted); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .battery { display: inline-flex; align-items: center; gap: 6px; }
+  .battery-bar { width: 44px; height: 4px; border-radius: 99px; overflow: hidden; background: #2b383e; }
+  .battery-bar i { display: block; width: 0; height: 100%; background: var(--mint); }
+  .battery-bar.low i { background: var(--red); }
+  .safety { padding: 13px 14px 14px; }
+  .safety-list { display: grid; gap: 8px; }
+  .safety-row { display: grid; grid-template-columns: 7px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); color: var(--muted); font-size: 10px; }
+  .safety-row:last-child { border-bottom: 0; }
+  .safety-row b { color: var(--text); font-weight: 600; }
+  .map-panel { grid-column: 1 / -1; grid-row: 4; }
+  .sim-panel { grid-column: 1 / -1; grid-row: 4; }
+  .sim-stage { position: relative; height: 560px; margin: 15px; border: 1px solid var(--line); background: #070d10; overflow: hidden; }
+  .sim-stage canvas { display: block; width: 100%; height: 100%; }
+  .sim-toolbar { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
+  .sim-toolbar .btn { min-width: 88px; }
+  .sim-status { margin-left: auto; color: var(--muted); font-size: 10px; }
+  .sim-legend { display: flex; justify-content: space-between; gap: 12px; padding: 0 16px 14px; color: var(--faint); font-size: 10px; }
+  .sim-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 10px; height: 4px; border-radius: 2px; display: inline-block; }
+  .legend-swatch.point { background: #8fbec4; }
+  .legend-swatch.route { background: #4dd6b7; }
+  .legend-swatch.drone { background: #eab85a; }
+  .map-stage { position: relative; min-height: 250px; margin: 15px; border: 1px solid var(--line); background: #0e171b; overflow: hidden; }
+  .map-stage::after { content: "示例户型 · 等待地图数据"; position: absolute; inset: 0; display: grid; place-items: center; color: rgba(147, 165, 168, .16); font-size: 17px; letter-spacing: .12em; pointer-events: none; }
+  .room { position: absolute; padding: 12px; border: 1px solid #3b5157; background: #16252a; color: var(--muted); }
+  .room strong { color: #cbd8d6; font-size: 11px; font-weight: 650; }
+  .room small { display: block; margin-top: 5px; color: var(--faint); font-size: 10px; }
+  .room.living { left: 5%; top: 9%; width: 42%; height: 40%; }
+  .room.kitchen { left: 52%; top: 9%; width: 42%; height: 24%; }
+  .room.bedroom { left: 52%; top: 39%; width: 42%; height: 47%; }
+  .room.hall { left: 5%; top: 56%; width: 42%; height: 30%; }
+  .map-foot { display: flex; justify-content: space-between; gap: 12px; padding: 0 16px 14px; color: var(--faint); font-size: 10px; }
+  .control-panel { grid-column: 1; grid-row: 2; }
+  .control-state { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; }
+  .control-state strong { color: var(--text); font-weight: 650; }
+  .control-body { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; justify-items: center; gap: 28px; padding: 20px 18px 21px; }
+  .pad-wrap { display: grid; justify-items: center; }
+  .pad { position: relative; display: grid; place-items: center; width: 142px; height: 142px; border: 1px solid var(--line); border-radius: 50%; background: #132023; cursor: grab; touch-action: none; user-select: none; }
+  .pad::before, .pad::after { content: ""; position: absolute; background: #2b4145; }
+  .pad::before { width: 1px; height: 74%; }
+  .pad::after { width: 74%; height: 1px; }
+  .pad.active { border-color: var(--mint); box-shadow: 0 0 0 4px var(--mint-soft); }
+  .pad.locked { opacity: .42; cursor: not-allowed; }
+  .stick { position: absolute; z-index: 1; width: 46px; height: 46px; border: 1px solid #4a6369; border-radius: 50%; background: var(--surface-3); pointer-events: none; }
+  .pad-label { margin-top: 9px; color: var(--faint); font-size: 10px; text-align: center; }
+  .control-readout { display: grid; justify-items: center; gap: 10px; min-width: 150px; }
+  .axes { color: var(--muted); font-size: 11px; line-height: 1.7; text-align: center; font-variant-numeric: tabular-nums; }
+  .axes b { color: var(--mint); font-weight: 650; }
+  .control-message { max-width: 185px; color: var(--muted); font-size: 10px; line-height: 1.5; text-align: center; }
+  .control-message.warn { color: var(--amber); }
+  .control-message.bad { color: var(--red); }
+  .control-actions { padding: 0 16px 15px; border-bottom: 1px solid var(--line-soft); }
+  .control-actions .btn { min-width: 82px; }`n  .btn.ai-test { border-color: var(--amber); color: var(--amber); background: var(--amber-soft); }
+  .control-help { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; padding: 13px 16px 16px; }
+  .help-block-title { margin-bottom: 7px; color: var(--faint); font-size: 10px; letter-spacing: .12em; }
+  .help-line { display: flex; align-items: flex-start; gap: 6px; margin-top: 5px; color: var(--muted); font-size: 10px; line-height: 1.45; }
+  kbd { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; background: var(--surface-3); color: var(--text); font-family: inherit; font-size: 10px; }
+  .tag { display: inline-grid; place-items: center; min-height: 19px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 700; }
+  .tag.warn { border: 1px solid #705d32; background: var(--amber-soft); color: var(--amber); }
+  .tag.danger { border: 1px solid #713a38; background: var(--red-soft); color: var(--red); }
+
+  .tag.demo { border: 1px solid #3a4a62; background: rgba(90,120,160,.18); color: #9db4d0; }
+  .sim-toolbar .btn[disabled] { opacity: .45; cursor: not-allowed; }
+  .sim-stage-empty { display:grid; place-items:center; min-height:220px; padding:24px; text-align:center; color:var(--muted,#8a97ab); gap:10px; border:1px dashed var(--line,#2a3344); border-radius:8px; background:rgba(0,0,0,.18); }
+  .sim-stage-empty a { color: var(--mint,#6ee7c7); }
+
+  .tasks-panel { grid-column: 1; grid-row: 5; }
+  .task-actions { display: flex; gap: 7px; }
+  .task-feedback { padding: 9px 16px; border-bottom: 1px solid var(--line-soft); color: var(--muted); font-size: 10px; min-height: 30px; }
+  .task-feedback.ok { color: var(--mint); }
+  .task-feedback.bad { color: var(--red); }
+  .task-table { width: 100%; border-collapse: collapse; }
+  .task-table th { padding: 10px 16px; color: var(--faint); font-size: 10px; font-weight: 500; letter-spacing: .08em; text-align: left; text-transform: uppercase; }
+  .task-table td { padding: 11px 16px; border-top: 1px solid var(--line-soft); color: var(--muted); font-size: 11px; }
+  .task-table td:first-child { color: var(--text); font-variant-numeric: tabular-nums; }
+  .task-table .type { color: var(--mint); font-weight: 650; }
+  .task-table .status { color: var(--mint); }
+  .task-table .task-delete { width: 64px; min-width: 64px; padding: 11px 10px 11px 4px; text-align: right; white-space: nowrap; }
+  .delete-btn { display: inline-block; width: 44px; padding: 3px 0; border: 0; background: transparent; color: var(--faint); cursor: pointer; font-size: 11px; line-height: 1.2; text-align: center; white-space: nowrap; }
+  .delete-btn:hover { color: var(--red); }
+  .task-table .empty { padding: 30px 16px; color: var(--faint); text-align: center; }
+  .route-panel { grid-column: 2; grid-row: 5; }
+  .butler-fab { position: fixed; right: 22px; bottom: 22px; z-index: 60; display: grid; place-items: center; width: 54px; height: 54px; padding: 0; border: 1px solid var(--mint); border-radius: 50%; background: var(--mint); color: #081513; font-size: 22px; cursor: pointer; box-shadow: 0 10px 26px rgba(0,0,0,.5); } .butler-fab:hover { filter: brightness(1.08); } .butler-win { position: fixed; right: 22px; bottom: 88px; z-index: 61; width: 320px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: 0 20px 50px rgba(0,0,0,.55); overflow: hidden; } .butler-win[hidden] { display: none; } .butler-win-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 11px 13px; border-bottom: 1px solid var(--line-soft); } .butler-win-title { color: var(--text); font-size: 12px; font-weight: 700; } .butler-win-caption { margin-top: 3px; color: var(--muted); font-size: 10px; } .butler-win-close { border: 0; background: transparent; color: var(--faint); font-size: 14px; line-height: 1; cursor: pointer; } .butler-win-close:hover { color: var(--red); } .butler-win-state { display: flex; align-items: center; gap: 6px; padding: 9px 13px; border-top: 1px solid var(--line-soft); color: var(--muted); font-size: 10px; }
+  .butler-stage { display: grid; place-items: center; min-height: 190px; padding: 18px 14px; background: #070d10; }
+  .butler-face { font-size: 40px; line-height: 1; }
+  .butler-tip { margin-top: 10px; color: var(--muted); font-size: 10px; text-align: center; line-height: 1.7; }
+  .butler-empty { display: none; }
+  .butler-panel-legacy { display: none; }
+  .route-list { display: grid; gap: 13px; padding: 15px 16px 17px; }
+  .route-row { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 9px; }
+  .route-stage { color: var(--muted); font-size: 10px; font-weight: 700; }
+  .route-name { color: var(--text); font-size: 11px; font-weight: 650; }
+  .route-desc { margin-top: 3px; color: var(--faint); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .route-status { color: var(--amber); font-size: 10px; }
+  .route-status.done { color: var(--mint); }
+  .route-bar { grid-column: 2 / 4; height: 4px; margin-top: -2px; border-radius: 99px; background: #29363b; overflow: hidden; }
+  .route-bar i { display: block; width: 15%; height: 100%; background: var(--amber); }
+  .route-row.active .route-bar i { width: 52%; background: var(--violet); }
+  .route-row.done .route-bar i { width: 100%; background: var(--mint); }
+  .resource-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+  .resource { padding: 12px 14px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); }
+  .resource-head { display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; }
+  .resource-value { margin-top: 8px; color: var(--text); font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .resource-bar { height: 4px; margin-top: 8px; border-radius: 99px; background: #29363b; overflow: hidden; }
+  .resource-bar i { display: block; width: 0; height: 100%; background: var(--mint); }
+  .resource-bar.amber i { background: var(--amber); }
+  .resource-foot { margin-top: 5px; color: var(--faint); font-size: 10px; }
+  .footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 15px; color: var(--faint); font-size: 10px; }
+  .service-overlay { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(5, 9, 11, .82); }
+  .service-overlay[hidden] { display: none; }
+  .service-dialog { width: min(430px, 100%); padding: 22px; border: 1px solid #643b39; border-radius: 6px; background: var(--surface); box-shadow: 0 18px 48px rgba(0,0,0,.35); }
+  .service-dialog h2 { margin: 0; font-size: 16px; }
+  .service-dialog p { margin: 10px 0 16px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .service-dialog .btn { width: 100%; }
+  @media (max-width: 1180px) { .app { grid-template-columns: 76px minmax(0, 1fr); } .sidebar { align-items: center; padding-inline: 10px; } .brand { padding: 0; } .brand-copy, .nav-label, .nav-item span:not(.nav-icon), .node-box, .sidebar-version { display: none; } .nav-item { justify-content: center; width: 42px; padding: 0; } .main { padding-inline: 20px; } }
+  @media (max-width: 900px) { .dashboard-grid { grid-template-columns: 1fr; } .video-panel, .rail, .kinect-panel, .map-panel, .sim-panel, .control-panel, .tasks-panel, .route-panel { grid-column: 1; grid-row: auto; } .rail { display: grid; grid-template-columns: 1fr 1fr; } .resource-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sim-stage { height: 430px; } .sim-status { margin-left: 0; width: 100%; } }
+  @media (max-width: 680px) { .app { display: block; } .sidebar { display: none; } .main { padding: 14px 12px 22px; } .mobile-bar { display: flex; align-items: center; justify-content: space-between; min-height: 42px; margin-bottom: 16px; } .mobile-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; } .mobile-brand .brand-mark { width: 27px; height: 27px; font-size: 12px; } .topbar { display: block; margin-bottom: 16px; } .top-right { margin-top: 14px; justify-content: space-between; } .chip { flex: 1; } .clock { flex: none; } .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rail { grid-template-columns: 1fr; } .control-body { grid-template-columns: 1fr 1fr; gap: 16px; } .control-readout { grid-column: 1 / -1; grid-row: 2; } .control-help { grid-template-columns: 1fr; } .panel-head { align-items: flex-start; flex-wrap: wrap; } .video-actions, .control-actions, .task-actions { width: 100%; } .video-actions .btn, .control-actions .btn, .task-actions .btn { flex: 1; } .task-table th:nth-child(3), .task-table td:nth-child(3), .task-table th:nth-child(4), .task-table td:nth-child(4) { display: none; } .footer { flex-direction: column; } }
+  @media (max-width: 420px) { .summary { gap: 7px; } .metric { padding: 12px; } .metric-value { font-size: 19px; } .video-stage { min-height: 220px; margin: 11px; } .map-stage { margin: 11px; } .room { padding: 8px; } .room small { display: none; } .pad { width: 126px; height: 126px; } }
+</style>
+<script src="/libs/live2dcubismcore.js?v=2"></script>
+<script src="/libs/pixi.min.js?v=2"></script>
+<script src="/libs/pixi-live2d-display.min.js?v=2"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark">G</div><div class="brand-copy"><div class="brand-name">GANGLION</div><div class="brand-sub">HOME SAFETY OS</div></div></div>
+    <nav class="nav-group" aria-label="控制台导航"><div class="nav-label">控制台</div><button class="nav-item active" type="button"><span class="nav-icon">⌂</span><span>总览</span></button><button class="nav-item" type="button"><span class="nav-icon">◈</span><span>任务中心</span></button><button class="nav-item" type="button"><span class="nav-icon">⌁</span><span>设备编组</span></button><button class="nav-item" type="button"><span class="nav-icon">◌</span><span>事件记录</span></button></nav>
+    <nav class="nav-group" aria-label="系统导航"><div class="nav-label">系统</div><button class="nav-item" type="button"><span class="nav-icon">▦</span><span>能力路线</span></button><button class="nav-item" type="button"><span class="nav-icon">⚙</span><span>系统设置</span></button></nav>
+    <div class="sidebar-spacer" style="position: relative;"></div>
+    <div class="node-box"><div class="node-box-head"><span>塔台节点</span><span id="sideArch">AMD64</span></div><div class="node-box-state"><i class="dot ok" id="sideDot"></i><span id="sideState">服务运行中</span></div></div>
+    <div class="sidebar-version">Tower Control v0.7</div>
+  </aside>
+
+  <main class="main">
+    <div class="mobile-bar"><div class="mobile-brand"><span class="brand-mark">G</span><span>GANGLION TOWER</span></div><span class="chip"><i class="dot ok"></i><span id="mobileSync">实时同步</span></span></div>
+    <header class="topbar">
+      <div><div class="eyebrow">Operations / Home Safety</div><h1>家庭安全调度中心</h1><div class="subtitle" id="towerMeta">USER-20260614IM · AMD64 · 192.168.18.25</div></div>
+      <div class="top-right"><div class="chip"><i class="dot" id="linkDot"></i><strong id="linkLabel">塔台控制链路</strong><span id="networkLabel">Tello 网卡未接入</span></div><div class="chip"><i class="dot ok" id="syncDot"></i><span id="syncLabel">实时同步</span></div><div class="clock"><div id="time">12:22:44</div><div class="clock-date" id="date">10月15日周四</div></div></div>
+    </header>
+
+    <section class="notice warn" id="systemNotice"><i class="dot warn" id="noticeDot"></i><span class="notice-label">系统状态</span><span class="notice-text" id="noticeText">塔台在线，但 Tello 未连接。请开启无人机，自动跟随服务会等待热点出现。</span><button class="notice-action" id="noticeAction" type="button">刷新状态</button></section>
+
+    <section class="summary" aria-label="运行摘要">
+      <div class="metric"><div class="metric-head"><span>塔台节点</span><i class="dot ok" id="towerMetricDot"></i></div><div class="metric-value" id="towerMetric">在线</div><div class="metric-meta" id="towerMetricMeta">节点 192.168.18.25</div></div>
+      <div class="metric"><div class="metric-head"><span>空中单元</span><i class="dot" id="uavMetricDot"></i></div><div class="metric-value" id="uavMetric">未连接</div><div class="metric-meta" id="uavMetricMeta">等待 Tello</div></div>
+      <div class="metric"><div class="metric-head"><span>视频链路</span><i class="dot" id="videoMetricDot"></i></div><div class="metric-value" id="videoMetric">未开启</div><div class="metric-meta" id="videoMetricMeta">Tello 视频链路</div></div>
+      <div class="metric"><div class="metric-head"><span>任务记录</span><i class="dot" id="missionMetricDot"></i></div><div class="metric-value" id="missionMetric">0 条</div><div class="metric-meta">最近 20 条活动</div></div>
+    </section>
+
+    <div class="dashboard-grid">
+      <section class="panel video-panel" aria-label="Tello 实时画面">
+        <div class="panel-head"><div><div class="panel-title">空中单元实时画面</div><div class="panel-caption" id="videoCaption">Tello → 本机塔台 → MJPEG</div></div><div class="video-actions"><button class="btn primary" id="startVideoBtn" type="button">▶ 开启视频</button><button class="btn" id="stopVideoBtn" type="button">■ 关闭视频</button></div></div>
+        <div class="video-stage"><img id="telloVideo" alt="Tello 实时画面"><div class="video-placeholder" id="videoPlaceholder"><strong>视频未开启</strong><span id="videoPlaceholderText">开启后，塔台会将 Tello UDP 视频转为浏览器可读的 MJPEG。</span></div><div class="vision-badge active alert" id="visionBadge"><i class="dot small"></i><span id="visionText">识别中 · 人员 1 · 83%</span></div><div class="video-overlay" id="videoOverlay"><span class="video-tag"><i class="dot ok small"></i><span id="videoOverlayState">视频运行中</span></span><span class="video-tag">建议使用 Chrome / Edge</span></div></div>
+        <div class="video-foot"><span id="videoSource">来源：—</span><span id="videoUpdated">最近启动：—</span></div>
+      </section>
+
+      <aside class="rail">
+        <section class="panel"><div class="panel-head"><div><div class="panel-title">设备编组</div><div class="panel-caption">只显示真实接口提供的状态</div></div><span class="panel-link">3 个单元</span></div><div class="device-list">
+          <div class="device"><div class="device-icon ok" id="kinectIcon">⌁</div><div><div class="device-name">Kinect 视觉节点</div><div class="device-meta" id="kinectMeta">视觉节点已建立连接</div></div><div class="device-state ok" id="kinectState"><i class="dot small ok"></i>在线</div></div>
+          <div class="device"><div class="device-icon" id="telloIcon">◇</div><div><div class="device-name">空中单元 / Tello</div><div class="device-meta" id="telloMeta">开机后自动连接</div></div><div class="device-state" id="telloState"><i class="dot small"></i>未连接</div><div class="device-details"><div class="detail"><span>电量</span><b class="battery"><span id="telloBattery">未知</span><span class="battery-bar" id="telloBatteryBar"><i style="width: 0%;"></i></span></b></div><div class="detail"><span>控制</span><b id="telloSdk">无响应</b></div><div class="detail"><span>网络</span><b id="telloWlan">—</b></div><div class="detail"><span>视频</span><b id="telloVideoState">未开启</b></div></div></div>
+          <div class="device"><div class="device-icon">▰</div><div><div class="device-name">地面单元 / UGV</div><div class="device-meta" id="ugvMeta">UGV 数据未接入</div></div><div class="device-state" id="ugvState"><i class="dot small"></i>未接入</div></div>
+          <div class="device"><div class="device-icon">＋</div><div><div class="device-name">更多传感器</div><div class="device-meta">接口预留</div></div><div class="device-state">—</div></div>
+        </div></section>
+        <section class="panel safety"><div class="panel-head"><div><div class="panel-title">安全判定</div><div class="panel-caption">手动操控前的必要条件</div></div></div><div class="safety-list"><div class="safety-row"><i class="dot bad" id="safeLinkDot"></i><span>控制链路</span><b id="safeLink">未连接</b></div><div class="safety-row"><i class="dot warn" id="safeBatteryDot"></i><span>起飞电量</span><b id="safeBattery">未知</b></div><div class="safety-row"><i class="dot warn" id="safeVideoDot"></i><span>视频画面</span><b id="safeVideo">未开启</b></div><div class="safety-row"><i class="dot bad" id="safeTakeoffDot"></i><span>起飞许可</span><b id="safeTakeoff">不可用</b></div></div></section>
+      </aside>
+
+      <section class="panel control-panel" aria-label="Tello 手动操控台"><div class="panel-head"><div><div class="panel-title">手动操控台</div><div class="panel-caption">经塔台转发 rc 指令 · 松手发 rc0（室内仍可能漂移）</div></div><div class="control-state"><i class="dot bad" id="controlDot"></i><strong id="controlState">操控未就绪</strong></div></div><div class="control-actions"><button class="btn primary" id="takeoffBtn" type="button" disabled="">▲ 起飞</button><button class="btn" id="landBtn" type="button" disabled="">▼ 降落</button><button class="btn danger" id="emergencyBtn" type="button" disabled="">✖ 急停</button><button class="btn ai-test" id="flightTestBtn" type="button">AI 试飞 · 3 秒</button><span class="control-message bad" id="controlMessage">Tello 未连接，操控已锁定</span></div><div class="control-body"><div class="pad-wrap"><div class="pad locked" id="padL" aria-label="左摇杆" aria-disabled="true"><div class="stick"></div></div><div class="pad-label">左摇杆 · 油门 / 偏航</div></div><div class="control-readout"><div class="axes" id="rcReadout">a <b>0</b> · b <b>0</b><br>c <b>0</b> · d <b>0</b></div><div class="control-message" id="rcStatus">已发 rc0 · 室内仍可能漂移</div><div class="control-message">最近发送 <span id="rcLast">—</span></div></div><div class="pad-wrap"><div class="pad locked" id="padR" aria-label="右摇杆" aria-disabled="true"><div class="stick"></div></div><div class="pad-label">右摇杆 · 前后 / 平移</div></div></div><div class="control-help"><div><div class="help-block-title">键盘</div><div class="help-line"><kbd>W</kbd><kbd>S</kbd><span>前进 / 后退</span></div><div class="help-line"><kbd>A</kbd><kbd>D</kbd><span>左移 / 右移</span></div><div class="help-line"><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd><span>升降 / 偏航</span></div><div class="help-line"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><span>起飞 / 降落 / 急停</span></div></div><div><div class="help-block-title">安全边界</div><div class="help-line"><span class="tag warn">提示</span><span>建议先开启视频再操控</span></div><div class="help-line"><span class="tag warn">兜底</span><span>服务端 0.5s deadman 发 rc0；室内仍可能漂移</span></div></div><div><div class="help-block-title">急停说明</div><div class="help-line"><span class="tag danger">危险</span><span>急停立即停转电机，空中使用可能导致坠落</span></div></div></div></section>      <section class="panel map-panel"><div class="panel-head"><div><div class="panel-title">家庭态势</div><div class="panel-caption">结构化占位图，不代表真实定位结果</div></div><span class="panel-link">地图数据：未接入</span></div><div class="map-stage"><div class="room living"><strong>客厅</strong><small>主活动区</small></div><div class="room kitchen"><strong>厨房</strong><small>燃气风险区</small></div><div class="room bedroom"><strong>卧室</strong><small>重点关注区</small></div><div class="room hall"><strong>玄关 / 走廊</strong><small>待命点</small></div></div><div class="map-foot"><span>无人机位置：—</span><span>传感器坐标：—</span><span>最近更新：暂无地图数据</span></div></section>
+
+
+
+      <section class="panel sim-panel" aria-label="卧室三维数字孪生与无人机仿真"><div class="panel-head"><div><div class="panel-title">卧室三维仿真</div><div class="panel-caption">主面板未接入 · 完整三维请打开 room3d</div></div><div class="control-state"><i class="dot"></i><strong id="simState">未接入</strong></div></div><div class="sim-toolbar"><button class="btn primary" id="simPlayBtn" type="button" disabled title="未接入">▶ 播放路线 · 未接入</button><button class="btn" id="simPauseBtn" type="button" disabled title="未接入">Ⅱ 暂停 · 未接入</button><button class="btn" id="simResetBtn" type="button" disabled title="未接入">↺ 重置 · 未接入</button><button class="btn" id="simRouteBtn" type="button" disabled title="未接入">⌁ 重新规划 · 未接入</button><span class="sim-status" id="simStatus">三维仿真未接入本页</span></div><div class="sim-stage" id="simStage"><div class="sim-stage-empty"><strong>三维仿真未接入</strong><span>本页不会加载点云或驱动模拟机。请打开独立页面查看三维模型。</span><a href="/room3d.html" target="_blank" rel="noopener">打开 room3d.html →</a></div></div><div class="sim-legend"><span><i class="legend-swatch point"></i>扫描点云</span><span><i class="legend-swatch route"></i>仿真航线</span><span><i class="legend-swatch drone"></i>模拟无人机</span><span id="simMetrics">点数：— · 路线：—</span></div></section>
+      <section class="panel tasks-panel"><div class="panel-head"><div><div class="panel-title">任务中心</div><div class="panel-caption">任务记录字段来自 /api/mission · <span class="tag demo">仅演示记录，不驱动飞机</span></div></div><div class="task-actions"><button class="btn" id="pingBtn" type="button" title="仅写入任务记录，不驱动飞机">链路自检</button><button class="btn primary" id="patrolBtn" type="button" title="仅写入任务记录，不驱动飞机">全屋巡逻</button><button class="btn" id="dispatchBtn" type="button" title="仅写入任务记录，不驱动飞机">派发单元</button></div></div><div class="task-feedback" id="taskFeedback">暂无新任务操作</div><table class="task-table"><thead><tr><th>时间</th><th>任务类型</th><th>目标区域</th><th>执行单元</th><th>状态</th><th></th></tr></thead><tbody id="missions"><tr><td class="empty" colspan="6">暂无任务记录</td></tr></tbody></table></section>
+      <section class="panel route-panel"><div class="panel-head"><div><div class="panel-title">能力路线</div><div class="panel-caption">当前接口提供的研发状态</div></div></div><div class="route-list" id="caps"><div class="route-row pending"><div class="route-stage">P0</div><div><div class="route-name">外部视觉定位</div><div class="route-desc">Kinect v2 + AprilTag</div></div><div class="route-status ">待开发</div><div class="route-bar"><i></i></div></div><div class="route-row pending"><div class="route-stage">P1</div><div><div class="route-name">无人机自主巡逻</div><div class="route-desc">Tello/RoboMaster TT</div></div><div class="route-status ">待开发</div><div class="route-bar"><i></i></div></div><div class="route-row pending"><div class="route-stage">P2</div><div><div class="route-name">异常识别与推送</div><div class="route-desc">跌倒/灶火检测</div></div><div class="route-status ">待开发</div><div class="route-bar"><i></i></div></div><div class="route-row pending"><div class="route-stage">P3</div><div><div class="route-name">空地任务派发</div><div class="route-desc">无人机侦察+机器狗执行</div></div><div class="route-status ">待开发</div><div class="route-bar"><i></i></div></div><div class="route-row pending"><div class="route-stage">P4</div><div><div class="route-name">机器狗物理干预</div><div class="route-desc">长期目标</div></div><div class="route-status ">待开发</div><div class="route-bar"><i></i></div></div></div></section>
+    </div>
+
+    <section class="resource-strip"><div class="resource"><div class="resource-head"><span>CPU 温度</span><span id="cpuPercent">0°C</span></div><div class="resource-value" id="cpuValue">0 °C</div><div class="resource-bar amber"><i id="cpuBar" style="width: 0%;"></i></div><div class="resource-foot">tower.cpu_temp</div></div><div class="resource"><div class="resource-head"><span>内存</span><span id="memoryPercent">—</span></div><div class="resource-value" id="memoryValue">—</div><div class="resource-bar"><i id="memoryBar" style="width: 0%;"></i></div><div class="resource-foot">tower.memory</div></div><div class="resource"><div class="resource-head"><span>磁盘</span><span id="diskPercent">—</span></div><div class="resource-value" id="diskValue">—</div><div class="resource-bar"><i id="diskBar" style="width: 0%;"></i></div><div class="resource-foot">tower.disk</div></div><div class="resource"><div class="resource-head"><span>运行时间</span><span>节点</span></div><div class="resource-value" id="uptimeValue">—</div><div class="resource-foot">最近刷新 <span id="lastRefresh">12:22:42</span></div></div></section>
+    <section class="panel kinect-panel" aria-label="Kinect RGB-D 画面"><div class="panel-head"><div><div class="panel-title">Kinect RGB-D 画面</div><div class="panel-caption" id="kinectCaption">实时画面 · YOLO 识别框 · 70 KB/帧</div></div><div class="control-state"><i class="dot ok" id="kinectPanelDot"></i><strong id="kinectPanelState">画面实时</strong><div class="vision-actions"><button class="btn" id="visionRestartBtn" type="button">重启视觉链路</button><button class="btn" id="kinectPowerBtn" type="button">关闭 Kinect</button><button class="btn" id="scanStartBtn" type="button">开始卧室扫描</button><button class="btn" id="scanStopBtn" type="button" disabled="">结束扫描</button></div></div></div><div class="kinect-grid kinect-grid-single"><div class="kinect-view"><img id="kinectLive" alt="Kinect 实时画面与 YOLO 识别框" style="display: block;" src="/kinect/live.mjpg"><div class="kinect-empty" id="kinectLiveEmpty" style="display: none;">等待识别器推送画面…</div><span class="kinect-view-label">Kinect 彩色 · YOLO 识别框</span></div></div><div class="kinect-motion"><div class="motion-head"><span>活动变化度</span><strong id="motionLevel">轻微</strong><span id="motionRatio">变化 1.8%</span></div><div class="motion-bar warn" id="motionBarWrap"><i id="motionBar" style="width: 18.4%;"></i></div><div class="motion-objects" id="motionObjects">识别：<span class="obj"><b>person</b> 前方 1.1m</span><span class="obj"><b>keyboard</b> 前方 1.2m</span><span class="obj"><b>chair</b> 前方 0.9m</span></div></div><div class="kinect-foot"><span id="kinectBodyInfo">人体：0</span><span id="kinectUpdated">画面延迟：0 秒</span></div></section>
+    <footer class="footer"><span>Ganglion · 家庭空地异构协同系统 · Tower Control v0.7</span><span id="footerMeta">节点地址：192.168.18.25</span></footer>
+  </main>
+</div>
+
+<div class="service-overlay" id="serviceOverlay" hidden=""><div class="service-dialog"><h2>塔台服务不可用</h2><p id="serviceReason">无法读取 /api/status：Failed to fetch。请检查塔台服务或网络连接。</p><button class="btn primary" id="retryBtn" type="button">重新连接</button></div></div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  // 塔台已迁到笔记本本机：API 始终走当前页面来源（香橙派 192.168.18.181 已退役）
+  const TOWER_ORIGIN = location.origin;
+  const towerUrl = (path) => TOWER_ORIGIN + path;
+  const STATUS_MAP = { pending: '待开发', active: '进行中', done: '已完成' };
+  const state = { data: null, serviceOk: false, refreshBusy: false, videoStarting: false, videoVisible: false, rc: { a: 0, b: 0, c: 0, d: 0, active: false, keys: new Set(), timer: null, inFlight: false, last: null }, taskBusy: false };
+  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  const numberOrNull = (value) => { const n = Number(value); return Number.isFinite(n) ? n : null; };
+  const batteryValue = (value) => { const n = Number.parseInt(value, 10); return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : null; };
+  const fmtBytes = (mb) => { const n = numberOrNull(mb); return n == null ? '—' : (n >= 1024 ? (n / 1024).toFixed(1) + ' GB' : n + ' MB'); };
+  const nowText = () => new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  const isUavOnline = () => Boolean(state.serviceOk && state.data && state.data.uav && state.data.uav.online);
+  const currentBattery = () => state.data && state.data.uav ? batteryValue(state.data.uav.battery) : null;
+  const videoRunning = () => Boolean(state.data && state.data.uav_video && state.data.uav_video.running);
+  function setDot(id, tone) { const node = $(id); if (!node) return; node.className = 'dot' + (tone ? ' ' + tone : ''); }
+  function setText(id, value) { const node = $(id); if (node) node.textContent = value; }
+  function setState(nodeId, tone, text) { const node = $(nodeId); if (!node) return; node.className = 'device-state' + (tone ? ' ' + tone : ''); node.innerHTML = '<i class="dot small' + (tone ? ' ' + tone : '') + '"></i>' + esc(text); }
+  function showNotice(tone, text, action) { const n = $('systemNotice'); n.className = 'notice' + (tone ? ' ' + tone : ''); setDot('noticeDot', tone || ''); setText('noticeText', text); $('noticeAction').hidden = !action; if (action) $('noticeAction').textContent = action; }
+  function setServiceOverlay(show, reason) { $('serviceOverlay').hidden = !show; if (reason) setText('serviceReason', reason); }
+  function renderTop(tower, uav) {
+    const uavOnline = Boolean(uav.online);
+    const wlan = String(uav.wlan || '');
+    setText('towerMeta', tower.online ? `${tower.hostname || 'tower-node'} · ${tower.arch || '—'} · ${tower.ip || '—'}` : '塔台离线');
+    setText('sideArch', tower.arch || '—'); setText('footerMeta', `节点地址：${tower.ip || '—'}`);
+    setText('linkLabel', uavOnline ? 'Tello 控制链路' : '塔台控制链路'); setText('networkLabel', wlan.startsWith('192.168.10.') ? `wlan0 · ${wlan}` : (wlan ? '不在 Tello 网段' : 'Tello 网卡未接入'));
+    setDot('linkDot', uavOnline ? 'ok' : (wlan.startsWith('192.168.10.') ? 'warn' : ''));
+    setText('sideState', tower.online ? '服务运行中' : '服务离线'); setDot('sideDot', tower.online ? 'ok' : 'bad');
+    setText('mobileSync', '实时同步');
+  }
+  function renderSummary(tower, uav, video, missions) {
+    const uavOnline = Boolean(uav.online); const running = Boolean(video.running); const count = Number(uav.count || 0);
+    setText('towerMetric', tower.online ? '在线' : '离线'); setText('towerMetricMeta', tower.ip ? `节点 ${tower.ip}` : '地址未知'); setDot('towerMetricDot', tower.online ? 'ok' : 'bad');
+    setText('uavMetric', uavOnline ? count + ' 架' : '未连接'); setText('uavMetricMeta', uavOnline ? 'SDK 在线' : '等待 Tello'); setDot('uavMetricDot', uavOnline ? 'ok' : '');
+    setText('videoMetric', running ? '运行中' : '未开启'); setText('videoMetricMeta', video.error ? '链路异常' : 'Tello 视频链路'); setDot('videoMetricDot', running ? 'ok' : (video.error ? 'bad' : ''));
+    setText('missionMetric', `${(missions || []).length} 条`); setDot('missionMetricDot', missions && missions.length ? 'ok' : '');
+  }
+  function renderNotice(uav, video) {
+    const b = batteryValue(uav.battery); const online = Boolean(uav.online);
+    if (!state.serviceOk) return;
+    const signal = Number(uav.wlan_signal); if (signal <= -80) return showNotice('bad', 'Tello Wi-Fi 信号过弱（' + signal + ' dBm），视频会花屏或变黑。请将塔台电脑靠近无人机后重试。', null); if (!online) return showNotice('warn', '塔台在线，但 Tello 未连接。请开启无人机，自动跟随服务会等待热点出现。', '刷新状态');
+    if (b != null && b < 15) return showNotice('bad', `Tello 电量 ${b}%，起飞已锁定。请先充电。`, null);
+    if (b == null) return showNotice('warn', 'Tello 已连接，但电量未知。起飞前请人工确认电量，页面不会把未知值当作安全。', null);
+    if (video.error) return showNotice('bad', `视频链路异常：${video.error}`, '重试视频');
+    if (!video.running) return showNotice('warn', 'Tello 已连接，视频尚未开启。建议先开启视频再操控。', '开启视频');
+    showNotice('ok', 'Tello 控制链路和视频链路已就绪。松手会发 rc 0 0 0 0；室内光流不足时仍可能漂移，勿当定点悬停。', null);
+  }
+  function renderDevices(data) {
+    const k = data.kinect || {}; const uav = data.uav || {}; const ugv = data.ugv || {}; const video = data.uav_video || {}; const b = batteryValue(uav.battery); const online = Boolean(uav.online); const wlan = String(uav.wlan || '');
+    $('kinectIcon').classList.toggle('ok', Boolean(k.connected)); setState('kinectState', k.connected ? 'ok' : '', k.connected ? '在线' : '未接入'); setText('kinectMeta', k.connected ? '视觉节点已建立连接' : (k.note || '—'));
+    $('telloIcon').classList.toggle('ok', online); setState('telloState', online ? 'ok' : '', online ? 'SDK 在线' : '未连接'); setText('telloMeta', online ? 'Tello SDK 控制端点' : '开机后自动连接'); setText('telloBattery', b == null ? '未知' : b + '%'); $('telloBatteryBar').classList.toggle('low', b != null && b < 25); $('telloBatteryBar').querySelector('i').style.width = b == null ? '0%' : b + '%'; setText('telloSdk', online ? '在线' : '无响应'); setText('telloWlan', wlan.startsWith('192.168.10.') ? wlan : (wlan ? '非 Tello 网段' : '—')); setText('telloVideoState', video.running ? '运行中' : (video.error ? '异常' : '未开启'));
+    setState('ugvState', Number(ugv.count || 0) > 0 ? 'ok' : '', Number(ugv.count || 0) > 0 ? `${ugv.count} 台在线` : '未接入'); setText('ugvMeta', Number(ugv.count || 0) > 0 ? '已注册地面单元' : 'UGV 数据未接入'); renderKinect(k);
+    const kPower = $('kinectPowerBtn'); if (kPower) { const kOn = data.kinect_power !== false; kPower.textContent = kOn ? '关闭 Kinect' : '开启 Kinect'; kPower.classList.toggle('danger', kOn); kPower.classList.toggle('primary', !kOn); }
+  }
+  function renderKinect(k) {
+    const connected = Boolean(k.connected); const bodyCount = Number(k.body_count || 0);
+    const frame = arguments.length > 1 && arguments[1] ? arguments[1] : (state.data && state.data.kinect_frame) || {};
+    const live = Boolean(frame.available);
+    setDot('kinectPanelDot', live ? 'ok' : (connected ? 'warn' : '')); setText('kinectPanelState', live ? '画面实时' : (connected ? '已连接' : '未接入'));
+    setText('kinectCaption', live ? `实时画面 · YOLO 识别框 · ${Math.round((frame.bytes || 0) / 1024)} KB/帧` : (k.note || '等待识别器推送画面'));
+    setText('kinectBodyInfo', `人体：${bodyCount}`); setText('kinectUpdated', live ? `画面延迟：${frame.age_s} 秒` : '最近更新：—');
+    const liveImg = $('kinectLive'); const liveEmpty = $('kinectLiveEmpty');
+    if (live) {
+      if (!liveImg.src || !liveImg.src.includes('/kinect/live.mjpg')) liveImg.src = towerUrl('/kinect/live.mjpg?t=' + Date.now());
+      liveImg.style.display = 'block'; liveEmpty.style.display = 'none';
+    } else {
+      liveImg.removeAttribute('src'); liveImg.style.display = 'none'; liveEmpty.style.display = 'grid';
+    }
+  }
+  function renderMotion(vision) {    const change = vision.change || null; const objects = Array.isArray(vision.objects) ? vision.objects : [];
+    const level = change && change.level ? change.level : null; const ratio = change && typeof change.ratio === 'number' ? change.ratio : null;
+    setText('motionLevel', vision.active ? (level || '—') : '未接入');
+    setText('motionRatio', ratio == null ? '—' : `变化 ${(ratio * 100).toFixed(1)}%`);
+    $('motionBarWrap').className = 'motion-bar' + (level === '明显' ? ' bad' : (level === '轻微' ? ' warn' : ''));
+    $('motionBar').style.width = ratio == null ? '0%' : Math.min(100, ratio * 1000) + '%';
+    const withDepth = objects.filter(o => o && typeof o.z === 'number');
+    $('motionObjects').innerHTML = withDepth.length
+      ? '识别：' + withDepth.slice(0, 4).map(o => `<span class="obj"><b>${esc(o.label)}</b> 前方 ${o.z.toFixed(1)}m</span>`).join('')
+      : (objects.length ? `识别：${objects.length} 个对象（该区域无有效深度）` : '识别：—');
+  }
+  function renderSafety(data) {
+    const uav = data.uav || {}; const video = data.uav_video || {}; const online = Boolean(uav.online); const b = batteryValue(uav.battery); const videoOk = Boolean(video.running);
+    setDot('safeLinkDot', online ? 'ok' : 'bad'); setText('safeLink', online ? 'SDK 在线' : '未连接');
+    setDot('safeBatteryDot', b == null ? 'warn' : (b < 15 ? 'bad' : (b < 30 ? 'warn' : 'ok'))); setText('safeBattery', b == null ? '未知' : `${b}%${b < 30 ? ' · 偏低' : ''}`);
+    setDot('safeVideoDot', videoOk ? 'ok' : (video.error ? 'bad' : 'warn')); setText('safeVideo', videoOk ? '运行中' : (video.error ? '异常' : '未开启'));
+    const canTakeoff = online && (b == null || b >= 15); setDot('safeTakeoffDot', canTakeoff ? (b == null ? 'warn' : 'ok') : 'bad'); setText('safeTakeoff', !online ? '不可用' : (b != null && b < 15 ? '已锁定' : (b == null ? '需确认' : '允许')));
+  }
+  function renderResources(tower) {
+    const temp = numberOrNull(tower.cpu_temp); const memory = tower.memory || {}; const disk = tower.disk || {};
+    setText('cpuPercent', temp == null ? '—' : `${temp}°C`); setText('cpuValue', temp == null ? '—' : `${temp} °C`); $('cpuBar').style.width = temp == null ? '0%' : Math.min(100, Math.max(0, temp / 90 * 100)) + '%';
+    setText('memoryPercent', memory.percent == null ? '—' : `${memory.percent}%`); setText('memoryValue', memory.used_mb == null ? '—' : `${fmtBytes(memory.used_mb)} / ${fmtBytes(memory.total_mb)}`); $('memoryBar').style.width = memory.percent == null ? '0%' : Math.min(100, memory.percent) + '%';
+    setText('diskPercent', disk.percent == null ? '—' : `${disk.percent}%`); setText('diskValue', disk.used_mb == null ? '—' : `${fmtBytes(disk.used_mb)} / ${fmtBytes(disk.total_mb)}`); $('diskBar').style.width = disk.percent == null ? '0%' : Math.min(100, disk.percent) + '%';
+    setText('uptimeValue', tower.uptime || '—'); setText('lastRefresh', nowText());
+  }
+  function renderMissions(items) { const list = Array.isArray(items) ? items.slice().reverse() : []; setText('missionMetric', `${list.length} 条`); $('missions').innerHTML = list.length ? list.map((x, index) => { const id = x.id ?? `legacy-${index}`; return `<tr><td>${esc(x.time)}</td><td class="type">${esc(x.type)}</td><td>${esc(x.target)}</td><td>—</td><td class="status">${esc(x.status)}</td><td class="task-delete"><button class="delete-btn" type="button" data-mission-id="${esc(id)}" onclick="deleteMission('${esc(id)}', this)" aria-label="删除任务">删除</button></td></tr>`; }).join('') : '<tr><td class="empty" colspan="6">暂无任务记录</td></tr>'; }
+  async function deleteMission(id, button) { if (String(id).startsWith('legacy-')) { setTaskFeedback('这条任务没有可删除的服务端 ID，请刷新页面后重试。', 'bad'); return; } if (!confirm('删除这条任务记录？')) return; const original = button.textContent; button.disabled = true; button.textContent = '删除中'; try { const response = await fetch(towerUrl(`/api/mission/${encodeURIComponent(id)}`), { method: 'DELETE' }); const result = await response.json(); if (!response.ok || !result.ok) throw new Error(result.msg || `HTTP ${response.status}`); setTaskFeedback('任务记录已删除。', 'ok'); await refreshStatus(); } catch (error) { button.disabled = false; button.textContent = original; setTaskFeedback(`删除失败：${error.message}`, 'bad'); } }
+  function renderCapabilities(items) { $('caps').innerHTML = (Array.isArray(items) ? items : []).map(x => `<div class="route-row ${esc(x.status)}"><div class="route-stage">${esc(x.stage)}</div><div><div class="route-name">${esc(x.name)}</div><div class="route-desc">${esc(x.desc)}</div></div><div class="route-status ${x.status === 'done' ? 'done' : ''}">${esc(STATUS_MAP[x.status] || x.status || '—')}</div><div class="route-bar"><i></i></div></div>`).join(''); }
+  function renderVideo(data) {
+    const video = data.uav_video || {}; const running = Boolean(video.running); setText('videoCaption', running ? '视频链路运行中 · 低延迟 MJPEG' : (video.error ? '视频链路异常' : 'Tello → 本机塔台 → MJPEG')); setText('videoSource', running ? '来源：Tello UDP 11111 → 本机塔台 ffmpeg' : '来源：—'); setText('videoUpdated', video.started_at ? `最近启动：${new Date(video.started_at * 1000).toLocaleTimeString('zh-CN', { hour12: false })}` : '最近启动：—');
+    if (running) { setText('videoOverlayState', '视频运行中'); $('videoOverlay').classList.add('show'); if (!state.videoStarting && (!state.videoVisible || !$('telloVideo').src.includes('/video/mjpg'))) { const image = $('telloVideo'); image.onerror = () => { state.videoVisible = false; image.style.display = 'none'; $('videoPlaceholder').style.display = 'grid'; setText('videoPlaceholderText', '视频流已中断，请重新开启视频。'); }; image.src = towerUrl('/video/mjpg?t=' + Date.now()); image.style.display = 'block'; $('videoPlaceholder').style.display = 'none'; state.videoVisible = true; } } else { $('videoOverlay').classList.remove('show'); if (state.videoVisible && !state.videoStarting) { state.videoVisible = false; const image = $('telloVideo'); image.removeAttribute('src'); image.style.display = 'none'; $('videoPlaceholder').style.display = 'grid'; setText('videoPlaceholderText', video.error ? `视频流已中断：${video.error}` : '视频已停止。点击「开启视频」重新建立链路。'); } }
+    const vision = data.vision || {}; const objects = Array.isArray(vision.objects) ? vision.objects : []; const persons = objects.filter(x => x.label === 'person'); const badge = $('visionBadge'); badge.className = 'vision-badge' + (vision.active ? ' active' : '') + (persons.length ? ' alert' : ''); setText('visionText', vision.active ? (persons.length ? `识别中 · 人员 ${persons.length} · ${Math.round(Math.max(...persons.map(x => Number(x.conf) || 0)) * 100)}%` : `识别中 · ${objects.length} 个对象`) : '识别器未接入');
+  }
+  function updateControlLock() {
+    const online = isUavOnline(); const b = currentBattery(); const takeoffLocked = !online || (b != null && b < 15); const lock = !online;
+    $('takeoffBtn').disabled = takeoffLocked; $('landBtn').disabled = lock; $('emergencyBtn').disabled = lock; $('padL').classList.toggle('locked', lock); $('padR').classList.toggle('locked', lock); $('padL').setAttribute('aria-disabled', String(lock)); $('padR').setAttribute('aria-disabled', String(lock));
+    const advice = !online ? 'Tello 未连接，操控已锁定' : (b != null && b < 15 ? '电量低于 15%，起飞已锁定' : (b == null ? '电量未知，起飞需人工确认' : (!videoRunning() ? '建议先开启视频再操控' : '操控权限已就绪')));
+    $('controlMessage').className = 'control-message' + (!online || (b != null && b < 15) ? ' bad' : (b == null || !videoRunning() ? ' warn' : '')); setText('controlMessage', advice); setText('controlState', online ? (state.rc.active ? '操控中' : '操控待命') : '操控未就绪'); setDot('controlDot', online ? (state.rc.active ? 'ok' : '') : 'bad');
+  }
+  function updateRcReadout() { $('rcReadout').innerHTML = `a <b>${Math.round(state.rc.a)}</b> · b <b>${Math.round(state.rc.b)}</b><br>c <b>${Math.round(state.rc.c)}</b> · d <b>${Math.round(state.rc.d)}</b>`; setText('rcStatus', state.rc.active ? '操控中 · 松手发 rc0（可能漂移）' : '已发 rc0 · 室内仍可能漂移'); setText('rcLast', state.rc.last || '—'); updateControlLock(); }
+  function setTaskFeedback(text, tone) { const node = $('taskFeedback'); node.className = 'task-feedback' + (tone ? ' ' + tone : ''); setText('taskFeedback', text); }
+  async function refreshStatus() {
+    if (state.refreshBusy) return; state.refreshBusy = true;
+    try {
+      const response = await fetch(towerUrl('/api/status'), { cache: 'no-store' }); if (!response.ok) throw new Error(`HTTP ${response.status}`); const data = await response.json();
+      state.data = data; state.serviceOk = true; setServiceOverlay(false); setText('syncLabel', '实时同步'); setText('mobileSync', '实时同步'); setDot('syncDot', 'ok');
+      const tower = data.tower || {}; const uav = data.uav || {}; const video = data.uav_video || {};
+      renderTop(tower, uav); renderSummary(tower, uav, video, data.missions); renderNotice(uav, video); renderDevices(data); renderSafety(data); renderVideo(data); renderMotion(data.vision || {}); renderResources(tower); renderMissions(data.missions); renderCapabilities(data.capabilities); updateControlLock(); updateScanButtons(data.scan || {});
+    } catch (error) {
+      state.serviceOk = false; setText('syncLabel', '连接中断'); setText('mobileSync', '连接中断'); setDot('syncDot', 'bad'); showNotice('bad', '无法读取塔台状态，设备状态和操控已锁定。', '重试'); setServiceOverlay(true, `无法读取 /api/status：${error.message}。请检查塔台服务或网络连接。`); updateControlLock();
+    } finally { state.refreshBusy = false; }
+  }
+  async function startVideo() {
+    if (!isUavOnline()) { setTaskFeedback('Tello 未连接，无法开启视频。', 'bad'); return; }
+    if (state.videoStarting) return; state.videoStarting = true; const button = $('startVideoBtn'); button.disabled = true; button.classList.add('busy'); button.textContent = '启动中...'; $('videoPlaceholder').style.display = 'grid'; setText('videoPlaceholderText', '正在启动视频链路，通常需要 4–8 秒，请保持当前页面。');
+    try { const response = await fetch(towerUrl('/api/uav/video/start'), { method: 'POST' }); const result = await response.json(); if (!result.ok) { setText('videoPlaceholderText', result.msg || '视频启动失败'); setTaskFeedback(result.msg || '视频启动失败', 'bad'); return; } const image = $('telloVideo'); image.onerror = () => { state.videoVisible = false; image.style.display = 'none'; $('videoPlaceholder').style.display = 'grid'; setText('videoPlaceholderText', '视频流已中断，无人机可能已关机或离开信号范围。'); }; image.src = towerUrl('/video/mjpg?t=' + Date.now()); image.style.display = 'block'; $('videoPlaceholder').style.display = 'none'; state.videoVisible = true; setTaskFeedback(result.msg || '视频链路已启动', 'ok'); await refreshStatus(); } catch (error) { setText('videoPlaceholderText', `视频启动失败：${error.message}`); setTaskFeedback(`视频启动失败：${error.message}`, 'bad'); } finally { state.videoStarting = false; button.disabled = false; button.classList.remove('busy'); button.textContent = '▶ 开启视频'; }
+  }
+  async function stopVideo() { try { await fetch(towerUrl('/api/uav/video/stop'), { method: 'POST' }); } catch (error) { setTaskFeedback(`关闭视频失败：${error.message}`, 'bad'); } const image = $('telloVideo'); image.removeAttribute('src'); image.style.display = 'none'; state.videoVisible = false; $('videoPlaceholder').style.display = 'grid'; setText('videoPlaceholderText', '视频已关闭。'); await refreshStatus(); }
+  const clamp100 = (value) => Math.max(-100, Math.min(100, Math.round(value)));
+  async function sendRc() { if (!isUavOnline() || state.rc.inFlight) return; state.rc.inFlight = true; const payload = { a: clamp100(state.rc.a), b: clamp100(state.rc.b), c: clamp100(state.rc.c), d: clamp100(state.rc.d) }; try { const response = await fetch(towerUrl('/api/uav/rc'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (!response.ok) throw new Error(`HTTP ${response.status}`); state.rc.last = nowText(); setText('rcLast', state.rc.last); } catch (error) { setText('rcStatus', `指令失败：${error.message}`); } finally { state.rc.inFlight = false; } }
+  function startRcTimer() { if (state.rc.timer) return; state.rc.timer = setInterval(() => { if (state.rc.active) void sendRc(); }, 100); }
+  function resetRc() { state.rc.a = 0; state.rc.b = 0; state.rc.c = 0; state.rc.d = 0; state.rc.active = false; updateRcReadout(); void sendRc(); }
+  function bindPad(id, handler) { const pad = $(id); const stick = pad.querySelector('.stick'); let dragging = false; const move = (event) => { if (!isUavOnline()) return; const box = pad.getBoundingClientRect(); let dx = (event.clientX - box.left - box.width / 2) / (box.width / 2); let dy = (event.clientY - box.top - box.height / 2) / (box.height / 2); const length = Math.hypot(dx, dy); if (length > 1) { dx /= length; dy /= length; } stick.style.transform = `translate(${dx * 42}px, ${dy * 42}px)`; handler(dx * 100, dy * 100); state.rc.active = true; updateRcReadout(); }; const end = () => { if (!dragging) return; dragging = false; pad.classList.remove('active'); stick.style.transform = ''; handler(0, 0); resetRc(); }; pad.addEventListener('pointerdown', (event) => { if (!isUavOnline()) return; dragging = true; pad.setPointerCapture(event.pointerId); pad.classList.add('active'); startRcTimer(); move(event); }); pad.addEventListener('pointermove', (event) => { if (dragging) move(event); }); pad.addEventListener('pointerup', end); pad.addEventListener('pointercancel', end); }
+  bindPad('padL', (dx, dy) => { state.rc.d = dx; state.rc.c = -dy; }); bindPad('padR', (dx, dy) => { state.rc.a = dx; state.rc.b = -dy; });
+  const KEYMAP = { KeyW: ['b', 1], KeyS: ['b', -1], KeyA: ['a', -1], KeyD: ['a', 1], ArrowUp: ['c', 1], ArrowDown: ['c', -1], ArrowLeft: ['d', -1], ArrowRight: ['d', 1] };
+  function applyKeys() { const values = { a: 0, b: 0, c: 0, d: 0 }; state.rc.keys.forEach(key => { const map = KEYMAP[key]; if (map) values[map[0]] += map[1] * 70; }); state.rc.a = values.a; state.rc.b = values.b; state.rc.c = values.c; state.rc.d = values.d; state.rc.active = state.rc.keys.size > 0; updateRcReadout(); }
+  async function uavCmd(command) { if (!isUavOnline()) { setTaskFeedback('Tello 未连接，指令已锁定。', 'bad'); return; } if (command === 'takeoff') { const b = currentBattery(); if (b != null && b < 15) return; const warning = b == null ? '电量未知，建议先充电并确认电量。' : `当前电量 ${b}%。`; if (!confirm(`确认起飞？\n${warning}\n请确认桨叶无遮挡、周围无人且处于开阔地面。`)) return; } const label = { takeoff: '起飞', land: '降落', emergency: '急停' }[command] || command; const button = command === 'takeoff' ? $('takeoffBtn') : (command === 'land' ? $('landBtn') : $('emergencyBtn')); button.disabled = true; button.classList.add('busy'); button.textContent = `${label}中...`; try { const response = await fetch(towerUrl('/api/uav/cmd'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd: command }) }); const result = await response.json(); if (!result.ok) throw new Error(result.msg || `HTTP ${response.status}`); setTaskFeedback(`${label}指令已发送：${result.msg || 'ok'}`, 'ok'); setText('rcStatus', `${label}指令已发送`); } catch (error) { setTaskFeedback(`${label}失败：${error.message}`, 'bad'); setText('rcStatus', `${label}失败`); } finally { button.classList.remove('busy'); button.textContent = command === 'takeoff' ? '▲ 起飞' : (command === 'land' ? '▼ 降落' : '✖ 急停'); updateControlLock(); } }
+  async function flightTest() { if (!isUavOnline()) { setTaskFeedback('AI 试飞不可用：Tello SDK 未连接。请等待 wlan0 进入 192.168.10.x 并确认 command 通道在线。', 'bad'); setText('rcStatus', 'SDK 未连接，未发送起飞'); return; } if (!confirm('确认执行 AI 试飞？\n流程：起飞 → 保持 3 秒 → 自动降落。\n请确认桨叶无遮挡、周围无人，并准备好急停。')) return; const button = $('flightTestBtn'); button.disabled = true; button.classList.add('busy'); button.textContent = '执行中...'; setTaskFeedback('AI 试飞已启动：3 秒后自动降落。', ''); try { const response = await fetch(towerUrl('/api/uav/flight-test'), { method: 'POST' }); const result = await response.json(); if (!response.ok || !result.ok) throw new Error(result.msg || `HTTP ${response.status}`); setTaskFeedback(result.msg, 'ok'); } catch (error) { setTaskFeedback(`AI 试飞失败：${error.message}`, 'bad'); } finally { setTimeout(() => { button.disabled = false; button.classList.remove('busy'); button.textContent = 'AI 试飞 · 3 秒'; }, 1500); } }  async function sendMission(type, target, button) { if (state.taskBusy) return; state.taskBusy = true; const original = button.textContent; button.disabled = true; button.classList.add('busy'); button.textContent = '发送中...'; setTaskFeedback('正在提交任务...', ''); try { const response = await fetch(towerUrl('/api/mission'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, target }) }); if (!response.ok) throw new Error(`HTTP ${response.status}`); const result = await response.json(); setTaskFeedback(`已记入演示记录（不驱动飞机）：${result.task && result.task.target ? result.task.target : target}`, 'ok'); await refreshStatus(); } catch (error) { setTaskFeedback(`任务提交失败：${error.message}`, 'bad'); } finally { state.taskBusy = false; button.disabled = false; button.classList.remove('busy'); button.textContent = original; } }
+  $('visionRestartBtn').addEventListener('click', restartVision); $('kinectPowerBtn').addEventListener('click', toggleKinectPower); $('scanStartBtn').addEventListener('click', startBedroomScan); $('scanStopBtn').addEventListener('click', stopBedroomScan); $('startVideoBtn').addEventListener('click', startVideo); $('stopVideoBtn').addEventListener('click', stopVideo); $('takeoffBtn').addEventListener('click', () => uavCmd('takeoff')); $('landBtn').addEventListener('click', () => uavCmd('land')); $('emergencyBtn').addEventListener('click', () => uavCmd('emergency')); $('flightTestBtn').addEventListener('click', flightTest); $('retryBtn').addEventListener('click', refreshStatus); $('noticeAction').addEventListener('click', () => { const text = $('noticeAction').textContent; if (text.includes('视频')) startVideo(); else refreshStatus(); }); $('pingBtn').addEventListener('click', (event) => sendMission('ping', '塔台自检', event.currentTarget)); $('patrolBtn').addEventListener('click', (event) => sendMission('patrol', '全屋巡逻', event.currentTarget)); $('dispatchBtn').addEventListener('click', (event) => sendMission('dispatch', '派发单元', event.currentTarget));
+  function isTypingTarget(el) {
+    if (!el) return false;
+    const tag = (el.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+    if (el.isContentEditable) return true;
+    return Boolean(el.closest && el.closest('input, textarea, select, [contenteditable="true"]'));
+  }
+  addEventListener('keydown', (event) => {
+    if (isTypingTarget(event.target)) return;
+    if (event.code === 'Digit1' || event.code === 'Digit2' || event.code === 'Digit3') {
+      if (event.repeat) return;
+      event.preventDefault();
+      // 起飞走 uavCmd 内建 confirm；降落/急停不二次确认
+      void uavCmd(event.code === 'Digit1' ? 'takeoff' : (event.code === 'Digit2' ? 'land' : 'emergency'));
+      return;
+    }
+    const map = KEYMAP[event.code];
+    if (!map || !isUavOnline()) return;
+    event.preventDefault();
+    state.rc.keys.add(event.code);
+    startRcTimer();
+    applyKeys();
+  });
+  addEventListener('keyup', (event) => { if (!KEYMAP[event.code]) return; state.rc.keys.delete(event.code); applyKeys(); if (!state.rc.keys.size) resetRc(); }); addEventListener('blur', () => { state.rc.keys.clear(); resetRc(); });
+  async function toggleKinectPower() {
+    const btn = $('kinectPowerBtn');
+    const wantOff = btn.textContent.includes('关闭');
+    btn.disabled = true; btn.textContent = wantOff ? '正在关闭…' : '正在开启…';
+    try {
+      const r = await fetch(towerUrl('/api/kinect/power'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: !wantOff }) });
+      const data = await r.json();
+      setTaskFeedback(data.msg || (wantOff ? '已关闭 Kinect' : '已开启 Kinect'), data.ok ? 'ok' : 'bad');
+      setTimeout(refreshStatus, 1500);
+    } catch (e) { setTaskFeedback(`Kinect 电源切换失败：${e.message}`, 'bad'); }
+    finally { btn.disabled = false; }
+  }
+
+  async function startBedroomScan() {
+    const btn = $('scanStartBtn');
+    if (btn) { btn.disabled = true; btn.classList.add('busy'); }
+    try {
+      const r = await fetch(towerUrl('/api/kinect/scan/start'), { method: 'POST' });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || data.ok === false) throw new Error(data.msg || `HTTP ${r.status}`);
+      setTaskFeedback(data.msg || '卧室扫描已开始', 'ok');
+      await refreshStatus();
+    } catch (e) {
+      setTaskFeedback(`开始扫描失败：${e.message}`, 'bad');
+    } finally {
+      if (btn) btn.classList.remove('busy');
+      updateScanButtons((state.data && state.data.scan) || {});
+    }
+  }
+  async function stopBedroomScan() {
+    const btn = $('scanStopBtn');
+    if (btn) { btn.disabled = true; btn.classList.add('busy'); }
+    try {
+      const r = await fetch(towerUrl('/api/kinect/scan/stop'), { method: 'POST' });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || data.ok === false) throw new Error(data.msg || `HTTP ${r.status}`);
+      const frames = data.frames != null ? ` · ${data.frames} 帧` : '';
+      setTaskFeedback((data.msg || '卧室扫描已结束') + frames, 'ok');
+      await refreshStatus();
+    } catch (e) {
+      setTaskFeedback(`结束扫描失败：${e.message}`, 'bad');
+    } finally {
+      if (btn) btn.classList.remove('busy');
+      updateScanButtons((state.data && state.data.scan) || {});
+    }
+  }
+  function updateScanButtons(scan) {
+    const active = Boolean(scan && scan.active);
+    const startBtn = $('scanStartBtn');
+    const stopBtn = $('scanStopBtn');
+    if (startBtn) startBtn.disabled = active;
+    if (stopBtn) stopBtn.disabled = !active;
+  }
+
+  async function restartVision() {
+    const button = $('visionRestartBtn');
+    button.disabled = true; button.textContent = '重启中...';
+    try {
+      const r = await fetch(towerUrl('/api/vision/restart'), { method: 'POST' });
+      let data = {};
+      try { data = await r.json(); } catch (_) { data = {}; }
+      if (!r.ok || data.ok === false) {
+        const err = data.msg || data.error || (`HTTP ${r.status}`);
+        setTaskFeedback(`重启视觉链路失败：${err}`, 'bad');
+        setText('kinectCaption', `重启失败：${err}`);
+        return;
+      }
+      setTaskFeedback(data.msg || '视觉链路已发送重启请求', 'ok');
+      setText('kinectCaption', data.msg || '正在恢复视觉链路…');
+      setTimeout(refreshStatus, 2500);
+    } catch (error) { setTaskFeedback(`重启视觉链路失败：${error.message}`, 'bad'); setText('kinectCaption', `重启失败：${error.message}`); }
+    finally { setTimeout(() => { button.disabled = false; button.textContent = '重启视觉链路'; }, 2000); }
+  }
+  function updateClock() { const d = new Date(); setText('time', d.toLocaleTimeString('zh-CN', { hour12: false })); setText('date', d.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })); }
+  updateClock(); setInterval(updateClock, 1000); void refreshStatus(); setInterval(() => { void refreshStatus(); }, 2000); updateRcReadout();
+</script>
+
+
+
+
+
+
+
+
+
+<!-- ====== Live2D 虚拟管家组件（融合自 vtuber.html，与演示页共享设置/对话记录） ====== -->
+<style>
+  #vt-stage { position: fixed; z-index: 99999; width: 340px; height: 460px;
+    touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
+  #vt-stage.vt-dragging { cursor: grabbing; }
+  #vt-canvas { width: 100%; height: 100%; display: block; }
+  #vt-btns { position: absolute; left: 50%; transform: translateX(-50%); bottom: -2px;
+    display: flex; gap: 8px; pointer-events: auto; }
+  #vt-btns button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(77,214,183,.5);
+    background: rgba(10,20,24,.85); color: #bff3e3; font-size: 17px; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0,0,0,.45); transition: transform .15s, background .15s; }
+  #vt-btns button:hover { transform: translateY(-2px); background: rgba(23,49,58,.95); }
+  .vt-badge { position: absolute; top: 8px; right: 10px; font-size: 10px; color: #6ee7c7;
+    background: rgba(10,20,24,.7); border: 1px solid rgba(77,214,183,.35); border-radius: 10px;
+    padding: 2px 8px; pointer-events: none; font-family: system-ui, sans-serif; }
+
+  .vt-panel { position: absolute; bottom: 0; width: 340px; max-width: calc(100vw - 40px);
+    max-height: min(500px, calc(100vh - 40px)); display: flex; flex-direction: column;
+    background: rgba(11,18,22,.93); backdrop-filter: blur(8px);
+    border: 1px solid rgba(77,214,183,.3); border-radius: 12px;
+    box-shadow: 0 14px 44px rgba(0,0,0,.55); overflow: hidden;
+    font-family: system-ui, "Microsoft YaHei", sans-serif; color: #d7e9e4; }
+  .vt-panel[hidden] { display: none; }
+  .vt-panel-head { display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.08);
+    font-size: 13px; font-weight: 700; color: #9ff0d9; }
+  .vt-panel-head .vt-x { background: none; border: 0; color: #8fa3a8; font-size: 15px; cursor: pointer; }
+  .vt-panel-head .vt-x:hover { color: #fff; }
+
+  #vt-msgs { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;
+    scrollbar-width: thin; }
+  .vt-msg { max-width: 86%; padding: 8px 11px; border-radius: 10px; font-size: 13px; line-height: 1.65;
+    white-space: pre-wrap; word-break: break-word; }
+  .vt-msg.user { align-self: flex-end; background: rgba(77,214,183,.16);
+    border: 1px solid rgba(77,214,183,.4); border-bottom-right-radius: 3px; }
+  .vt-msg.ai { align-self: flex-start; background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.12); border-bottom-left-radius: 3px; }
+  .vt-msg.ai.vt-err { border-color: rgba(255,110,110,.5); color: #ffb3b3; }
+  .vt-cursor { display: inline-block; width: 2px; height: 14px; margin-left: 2px;
+    background: #6ee7c7; animation: vtBlink .8s steps(1) infinite; vertical-align: -2px; }
+  @keyframes vtBlink { 50% { opacity: 0; } }
+  #vt-input-row { display: flex; gap: 8px; padding: 10px; border-top: 1px solid rgba(255,255,255,.08); }
+  #vt-input { flex: 1; min-width: 0; padding: 9px 12px; font-size: 13px; color: #e7f6f0;
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.15);
+    border-radius: 8px; outline: none; }
+  #vt-input:focus { border-color: rgba(77,214,183,.7); }
+  #vt-send { padding: 9px 16px; font-size: 13px; font-weight: 700; color: #06231b;
+    background: linear-gradient(140deg, #6ee7c7, #3ec9a8); border: 0; border-radius: 8px; cursor: pointer; }
+  #vt-send:disabled { opacity: .5; cursor: wait; }
+  #vt-mic { padding: 9px 12px; font-size: 14px; color: #e7f6f0;
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.15);
+    border-radius: 8px; cursor: pointer; }
+  #vt-mic.rec { color: #fff; background: #e5484d; border-color: #e5484d; animation: vtMicPulse 1s infinite; }
+  #vt-mic:disabled { opacity: .5; cursor: wait; }
+  @keyframes vtMicPulse { 50% { opacity: .6; } }
+
+  #vt-settings { width: 310px; }
+  #vt-set-body { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column;
+    gap: 10px; scrollbar-width: thin; }
+  .vt-field label { display: block; font-size: 11px; color: #93aca9; margin-bottom: 4px; }
+  .vt-field input[type=text], .vt-field input[type=password], .vt-field input[type=number],
+  .vt-field select, .vt-field textarea { width: 100%; box-sizing: border-box; padding: 7px 9px;
+    font-size: 12px; color: #e7f6f0; background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.15); border-radius: 7px; outline: none; font-family: inherit; }
+  .vt-field input:focus, .vt-field select:focus, .vt-field textarea:focus { border-color: rgba(77,214,183,.7); }
+  .vt-field textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
+  .vt-field input[type=range] { width: 100%; accent-color: #4dd6b7; }
+  .vt-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .vt-check { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #c9dcd7; }
+  .vt-check input { accent-color: #4dd6b7; width: 15px; height: 15px; }
+  #vt-set-actions { display: flex; gap: 8px; padding: 0 14px 12px; }
+  #vt-set-actions button { flex: 1; padding: 9px 0; font-size: 12px; font-weight: 700; border-radius: 8px;
+    border: 0; cursor: pointer; }
+  #vt-save { color: #06231b; background: linear-gradient(140deg, #6ee7c7, #3ec9a8); }
+  #vt-clear-hist { color: #ffd7d7; background: rgba(255,110,110,.14); border: 1px solid rgba(255,110,110,.4) !important; }
+  #vt-set-tip { font-size: 10px; color: #7fa39c; padding: 0 14px 10px; line-height: 1.6; }
+</style>
+
+<div id="vt-stage">
+  <canvas id="vt-canvas"></canvas>
+  <div class="vt-badge" id="vt-badge">加载中…</div>
+  <div id="vt-btns">
+    <button id="vt-chat-btn" title="聊天">💬</button>
+    <button id="vt-set-btn" title="设置">⚙️</button>
+  </div>
+
+  <div class="vt-panel" id="vt-chat" hidden>
+    <div class="vt-panel-head"><span>对话记录</span><button class="vt-x" data-close="vt-chat">✕</button></div>
+    <div id="vt-msgs"></div>
+    <div id="vt-input-row">
+      <input id="vt-input" type="text" placeholder="和她说点什么…" autocomplete="off">
+      <button id="vt-mic" title="点击开始说话，再点结束并识别">🎤</button>
+      <button id="vt-send">发送</button>
+    </div>
+  </div>
+
+  <div class="vt-panel" id="vt-settings" hidden>
+    <div class="vt-panel-head"><span>设置</span><button class="vt-x" data-close="vt-settings">✕</button></div>
+    <div id="vt-set-body">
+      <div class="vt-field"><label>API Key（DeepSeek / 任意 OpenAI 兼容）</label>
+        <input type="password" id="vt-key" placeholder="在此粘贴 API Key"></div>
+      <div class="vt-field"><label>API 地址（OpenAI 兼容）</label>
+        <input type="text" id="vt-base" placeholder="https://api.deepseek.com/v1"></div>
+      <div class="vt-field"><label>模型名</label>
+        <input type="text" id="vt-model" placeholder="deepseek-flash"></div>
+      <div class="vt-row2">
+        <div class="vt-field"><label>角色大小</label>
+          <input type="range" id="vt-scale" min="0.3" max="0.95" step="0.01"></div>
+        <div class="vt-field"><label>温度 <span id="vt-temp-v"></span></label>
+          <input type="range" id="vt-temp" min="0" max="1" step="0.1"></div>
+      </div>
+      <label class="vt-check"><input type="checkbox" id="vt-tts"> 语音播报 TTS（带嘴型同步）</label>
+      <button type="button" id="vt-tts-test" style="margin:2px 0 10px;padding:5px 14px;align-self:flex-start;">试听语音</button>
+      <div class="vt-field"><label>音色</label><select id="vt-voice"></select></div>
+      <div class="vt-row2">
+        <div class="vt-field"><label>语速 <span id="vt-rate-v"></span></label>
+          <input type="range" id="vt-rate" min="0.5" max="2" step="0.1"></div>
+        <div class="vt-field"><label>音量 <span id="vt-vol-v"></span></label>
+          <input type="range" id="vt-vol" min="0" max="1" step="0.1"></div>
+      </div>
+      <div class="vt-field"><label>音调 <span id="vt-pitch-v"></span> Hz（低沉 ↔ 明亮）</label>
+        <input type="range" id="vt-pitch" min="-50" max="50" step="5"></div>
+      <div class="vt-field"><label>角色人设（System Prompt）</label>
+        <textarea id="vt-prompt" placeholder="她的人格、说话风格…"></textarea></div>
+      <div class="vt-field"><label>Live2D 模型地址（高级，改后自动刷新）</label>
+        <input type="text" id="vt-model-url"></div>
+    </div>
+    <div id="vt-set-actions">
+      <button id="vt-save">保存设置</button>
+      <button id="vt-clear-hist">清空对话</button>
+    </div>
+    <div id="vt-set-tip">Key 只存在你本机浏览器（localStorage），经本站 /api/llm/chat 转发后即弃，不落盘。</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const LS_SET = 'vtuber.settings.v2', LS_HIST = 'vtuber.history.v1', LS_LAYOUT = 'vtuber.layout.v1';
+
+  const DEFAULTS = {
+    apiKey: 'sk-0961455c7a0d42c4835c232dc4cb0037',
+    baseUrl: 'https://api.deepseek.com/v1',
+    model: 'deepseek-flash',
+    modelUrl: '/live2d-models/mao_pro/runtime/mao_pro.model3.json',
+    temperature: 0.7,
+    charScale: 0.62,
+    tts: false,
+    edgeVoice: 'zh-CN-XiaoxiaoNeural',
+    pitch: 0,
+    rate: 1,
+    volume: 1,
+    systemPrompt: '你是"小灵"，家庭安全调度中心的 Live2D 虚拟管家，性格元气、机灵、偶尔傲娇。'
+      + '回答要简洁口语化（一般 1~3 句），可以适当用颜文字，但不啰嗦。'
+      + '用户问技术问题时给出准确简短的答案。'
+  };
+  let settings = { ...DEFAULTS };
+  try { settings = { ...DEFAULTS, ...JSON.parse(localStorage.getItem(LS_SET) || '{}') }; } catch (e) {}
+  let history = [];
+  try { history = JSON.parse(localStorage.getItem(LS_HIST) || '[]'); if (!Array.isArray(history)) history = []; } catch (e) {}
+
+  const saveSettings = () => localStorage.setItem(LS_SET, JSON.stringify(settings));
+  const saveHistory = () => { try { localStorage.setItem(LS_HIST, JSON.stringify(history.slice(-100))); } catch (e) {} };
+
+  /* ---- 舞台定位 / 拖拽 / 滚轮缩放 ---- */
+  const stage = $('vt-stage'), canvas = $('vt-canvas'), badge = $('vt-badge');
+  const W = 340, H = 460;
+  let layout = { x: null, y: null };
+  try { layout = { ...layout, ...JSON.parse(localStorage.getItem(LS_LAYOUT) || '{}') }; } catch (e) {}
+
+  function clampLayout() {
+    layout.x = Math.max(4, Math.min(innerWidth - W - 4, layout.x));
+    layout.y = Math.max(4, Math.min(innerHeight - 80, layout.y));
+  }
+  function applyLayout() {
+    if (layout.x == null) layout.x = innerWidth - W - 24;
+    if (layout.y == null) layout.y = innerHeight - H - 24;
+    clampLayout();
+    stage.style.left = layout.x + 'px'; stage.style.top = layout.y + 'px';
+  }
+  applyLayout();
+  addEventListener('resize', () => { clampLayout(); applyLayout(); });
+
+  let drag = null, dragDist = 0;
+  stage.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.vt-panel') || e.target.closest('#vt-btns')) return;
+    drag = { sx: e.clientX, sy: e.clientY, ox: layout.x, oy: layout.y };
+    dragDist = 0;
+    stage.setPointerCapture(e.pointerId);
+    stage.classList.add('vt-dragging');
+  });
+  stage.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    dragDist = Math.hypot(dx, dy);
+    if (dragDist > 6) {
+      layout.x = drag.ox + dx; layout.y = drag.oy + dy;
+      clampLayout();
+      stage.style.left = layout.x + 'px'; stage.style.top = layout.y + 'px';
+    }
+  });
+  const endDrag = () => {
+    if (!drag) return;
+    drag = null;
+    stage.classList.remove('vt-dragging');
+    if (dragDist > 6) localStorage.setItem(LS_LAYOUT, JSON.stringify(layout));
+  };
+  stage.addEventListener('pointerup', endDrag);
+  stage.addEventListener('pointercancel', endDrag);
+
+  let saveZoomTimer = null;
+  stage.addEventListener('wheel', (e) => {
+    if (e.target.closest('.vt-panel')) return;
+    e.preventDefault();
+    settings.charScale = Math.max(0.3, Math.min(0.95, settings.charScale - Math.sign(e.deltaY) * 0.05));
+    applyScale();
+    $('vt-scale').value = settings.charScale;
+    clearTimeout(saveZoomTimer);
+    saveZoomTimer = setTimeout(saveSettings, 400);
+  }, { passive: false });
+
+  /* ---- PIXI + Live2D ---- */
+  const app = new PIXI.Application({
+    view: canvas, width: W, height: H, backgroundAlpha: 0,
+    autoDensity: true, resolution: Math.min(devicePixelRatio || 1, 2),
+    antialias: true,
+  });
+  let model = null, mouth = 0, speaking = false, audioRef = null;
+
+  function applyScale() {
+    if (!model) return;
+    const oh = model.internalModel.originalHeight || model.internalModel.height;
+    if (oh) model.scale.set((H * settings.charScale) / oh);
+    try {
+      model.anchor.set(0.5, 0.5);
+      model.position.set(W / 2, H / 2);
+    } catch (e) {
+      model.position.set(W / 2 - model.width / 2, H / 2 - model.height / 2);
+    }
+  }
+
+  async function initModel() {
+    badge.textContent = '加载角色…';
+    const Model = (window.PIXI && PIXI.live2d && PIXI.live2d.Live2DModel)
+      ? PIXI.live2d.Live2DModel : null;
+    if (!Model) throw new Error('Live2D 库未加载（检查 /libs 三个脚本）');
+    model = await Model.from(settings.modelUrl, { autoInteract: false });
+    app.stage.addChild(model);
+    applyScale();
+    try {
+      model.internalModel.hitAreas.forEach(a => { if (!a.name) a.name = a.id; });
+    } catch (e) {}
+    try {
+      model.internalModel.on('beforeModelUpdate', () => {
+        try { model.internalModel.coreModel.setParameterValueById('ParamA', mouth); } catch (e) {}
+      });
+    } catch (e) {}
+    app.ticker.add(() => {
+      const target = speaking ? 0.15 + 0.72 * Math.abs(Math.sin(performance.now() * 0.02)) : 0;
+      mouth += (target - mouth) * 0.45;
+    });
+    badge.style.display = 'none';
+    react('hello');
+  }
+
+  /* ---- 点击交互 ---- */
+  const HEAD_LINES = ['摸摸头～', '嘿嘿，好痒啦', '再摸头发要乱咯', '唔…好舒服', '谁在摸我！'];
+  const BODY_LINES = ['呀！别戳', '肚子不可以随便碰！', '哇！干嘛啦～', '痒痒痒！', '再戳要生气了哦(｀ω´)'];
+  const HELLO_LINES = ['你来啦～塔台一切正常！', '今天也要元气满满哦！', '想我了就点我一下下～'];
+
+  function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+
+  function react(kind) {
+    if (!model) return;
+    try { model.expression('exp_0' + (1 + Math.floor(Math.random() * 8))); } catch (e) {}
+    if (kind === 'body') {
+      try { model.motion(''); } catch (e) {
+        try {
+          const groups = model.internalModel.motionManager.definitions || {};
+          const g = Object.keys(groups).find(k => k && k !== 'Idle');
+          if (g) model.motion(g);
+        } catch (e2) {}
+      }
+    }
+    const line = kind === 'head' ? pick(HEAD_LINES) : kind === 'body' ? pick(BODY_LINES) : pick(HELLO_LINES);
+    localBubble(line);
+    speak(line);
+  }
+
+  initModel().then(() => {
+    model.interactive = true;
+    model.on('pointertap', (e) => {
+      if (dragDist > 8) return;
+      let areas = [];
+      try { areas = model.hitTest(e.data.global.x, e.data.global.y) || []; } catch (err) {}
+      const head = areas.some(a => /head/i.test(a));
+      react(head ? 'head' : 'body');
+    });
+  }).catch(err => {
+    badge.style.display = '';
+    badge.textContent = '角色加载失败';
+    console.error('[vtuber] 模型加载失败:', err);
+  });
+
+  /* ---- TTS + 嘴型：服务端 edge-tts（Open-LLM-VTuber 同款），失败退回浏览器语音 ---- */
+  function speak(text, force) {
+    if (!force && !settings.tts) return;
+    const t = String(text).slice(0, 300);
+    try {
+      if (audioRef) { audioRef.pause(); audioRef = null; }
+      if ('speechSynthesis' in window) speechSynthesis.cancel();
+    } catch (e) {}
+    fetch('/api/tts', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: t,
+        voice: settings.edgeVoice || 'zh-CN-XiaoxiaoNeural',
+        rate: Math.round((settings.rate || 1) * 100),
+        pitch: Math.round(settings.pitch || 0),
+        volume: Math.round((settings.volume == null ? 1 : settings.volume) * 100),
+      })
+    }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = new Audio(url);
+        audioRef = a;
+        a.onplay = () => { speaking = true; };
+        a.onended = a.onerror = () => { speaking = false; URL.revokeObjectURL(url); if (audioRef === a) audioRef = null; };
+        a.play().catch(() => { speaking = false; });
+      })
+      .catch(() => speakLocal(t));
+  }
+  function speakLocal(text) {
+    if (!('speechSynthesis' in window)) return;
+    try {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'zh-CN';
+      u.rate = settings.rate; u.volume = settings.volume;
+      u.onstart = () => { speaking = true; };
+      u.onend = u.onerror = () => { speaking = false; };
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  /* ---- 聊天 ---- */
+  const msgs = $('vt-msgs'), input = $('vt-input'), sendBtn = $('vt-send');
+  const chatPanel = $('vt-chat'), setPanel = $('vt-settings');
+
+  function scrollBottom() { msgs.scrollTop = msgs.scrollHeight; }
+  function addMsg(role, text, err) {
+    const el = document.createElement('div');
+    el.className = 'vt-msg ' + role + (err ? ' vt-err' : '');
+    el.textContent = text;
+    msgs.appendChild(el);
+    scrollBottom();
+    return el;
+  }
+  function localBubble(text) {
+    const el = addMsg('ai', text);
+    setTimeout(() => { el.style.transition = 'opacity 1s'; el.style.opacity = '.45'; }, 6000);
+  }
+  function typeOut(el, text) {
+    return new Promise(res => {
+      let i = 0;
+      const cur = document.createElement('span'); cur.className = 'vt-cursor';
+      el.textContent = ''; el.appendChild(cur);
+      const step = Math.max(1, Math.round(text.length / 220));
+      const timer = setInterval(() => {
+        i = Math.min(text.length, i + step);
+        el.textContent = text.slice(0, i);
+        el.appendChild(cur);
+        scrollBottom();
+        if (i >= text.length) { clearInterval(timer); cur.remove(); res(); }
+      }, 42);
+    });
+  }
+
+  function renderHistory() {
+    msgs.innerHTML = '';
+    history.slice(-30).forEach(m => addMsg(m.role === 'user' ? 'user' : 'ai', m.content));
+    if (!history.length) addMsg('ai', '你好呀！我是塔台的 Live2D 管家小灵。点我头或身体有惊喜，右下角齿轮可改 API 和人设～');
+    scrollBottom();
+  }
+  renderHistory();
+
+  let busy = false;
+
+  /* ---- 塔台指令联动（本地规则引擎：语音/文字命中即执行，不依赖大模型） ---- */
+  async function towerPost(path, body) {
+    const r = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {}),
+    });
+    return r.json();
+  }
+  const TOWER_CMDS = [
+    { keys: ['急停', '紧急停'], icon: '🛑', label: '急停', done: '急停指令已发出，电机已停转', confirm: false,
+      run: () => towerPost('/api/uav/cmd', { cmd: 'emergency' }) },
+    { keys: ['起飞', '飞起来', '升空'], icon: '🚁', label: '起飞', done: '已发出起飞指令，无人机升空中', confirm: '确认起飞？\n请确认桨叶无遮挡、周围无人且处于开阔地面。',
+      run: () => towerPost('/api/uav/cmd', { cmd: 'takeoff' }) },
+    { keys: ['降落', '落地', '降下来', '下来'], icon: '🛬', label: '降落', done: '已发出降落指令，无人机返航降落中', confirm: false,
+      run: () => towerPost('/api/uav/cmd', { cmd: 'land' }) },
+    { keys: ['试飞'], icon: '🛫', label: 'AI试飞', done: 'AI 试飞已启动：起飞→3 秒→自动降落', confirm: '确认执行 AI 试飞？\n流程：起飞 → 保持 3 秒 → 自动降落。\n请确认桨叶无遮挡、周围无人，并准备好急停。',
+      run: () => towerPost('/api/uav/flight-test', {}) },
+    { keys: ['巡逻'], icon: '🛰️', label: '巡逻', done: '已记入演示记录（不驱动飞机）：全屋巡逻', confirm: false,
+      run: () => towerPost('/api/mission', { type: 'patrol', target: '全屋巡逻' }) },
+    { keys: ['扫描'], icon: '📡', label: '扫描', done: '卧室三维扫描已开始，点云采集中', confirm: false,
+      run: () => towerPost('/api/kinect/scan/start', {}) },
+  ];
+  const KINECT_RE = /kinect|摄像|视觉|相机|镜头/i;
+  function matchTowerCommand(text) {
+    const t = text.trim();
+    // Kinect 开关：需要"开/关"动词 + Kinect 类名词同时命中
+    if (KINECT_RE.test(t)) {
+      if (/关|停/.test(t)) return { icon: '📷', label: '关闭 Kinect', done: 'Kinect 视觉链路已关闭（守护不再自动拉起）',
+        run: () => towerPost('/api/kinect/power', { on: false }) };
+      if (/开|启|启动/.test(t)) return { icon: '📷', label: '开启 Kinect', done: 'Kinect 已开启，视觉链路 15 秒内自动拉起',
+        run: () => towerPost('/api/kinect/power', { on: true }) };
+    }
+    for (const c of TOWER_CMDS) {
+      if (c.keys.some(k => t.includes(k))) return c;
+    }
+    return null;
+  }
+
+  async function send() {
+    const text = input.value.trim();
+    if (!text || busy) return;
+    busy = true; sendBtn.disabled = true;
+    input.value = '';
+    addMsg('user', text);
+    // 塔台指令联动：命中规则直接执行（不依赖 DeepSeek，语音/文字都能触发）
+    const cmd = matchTowerCommand(text);
+    if (cmd) {
+      const el = addMsg('ai', '');
+      try {
+        if (cmd.confirm) {
+          const tip = typeof cmd.confirm === 'string' ? cmd.confirm : `确认执行「${cmd.label}」？`;
+          if (!window.confirm(tip)) {
+            await typeOut(el, `${cmd.icon} 已取消「${cmd.label}」`);
+            return;
+          }
+        }
+        const r = await cmd.run();
+        const ok = r && r.ok !== false;
+        const msg = ok
+          ? `${cmd.icon} ${cmd.done}${r && r.msg ? '：' + r.msg : ''}`
+          : `${cmd.icon} ${cmd.label}失败${r && r.msg ? '：' + r.msg : ''}`;
+        await typeOut(el, msg);
+        speak(msg);
+      } catch (e) {
+        el.classList.add('vt-err');
+        el.textContent = `${cmd.label}执行失败：${e.message}`;
+      } finally {
+        busy = false; sendBtn.disabled = false; scrollBottom();
+      }
+      return;
+    }
+    if (!settings.apiKey) {
+      addMsg('ai', '还没填 API Key 哦～点右下角 ⚙️ 设置，把 DeepSeek 的 Key 粘贴进去就能聊天啦。', true);
+      input.value = '';
+      busy = false; sendBtn.disabled = false;
+      return;
+    }
+    history.push({ role: 'user', content: text }); saveHistory();
+    const think = addMsg('ai', '…');
+    think.classList.add('vt-cursor');
+    try {
+      const r = await fetch('/api/llm/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-LLM-Key': settings.apiKey,
+          'X-LLM-Base': settings.baseUrl,
+          'X-LLM-Model': settings.model,
+        },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: settings.systemPrompt },
+            ...history.slice(-17, -1),
+            { role: 'user', content: text },
+          ],
+          temperature: settings.temperature,
+        }),
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.msg || ('HTTP ' + r.status));
+      think.classList.remove('vt-cursor');
+      speak(d.reply);
+      await typeOut(think, d.reply);
+      history.push({ role: 'assistant', content: d.reply }); saveHistory();
+      try { model.expression('exp_0' + (1 + Math.floor(Math.random() * 8))); } catch (e) {}
+    } catch (err) {
+      think.classList.remove('vt-cursor');
+      think.classList.add('vt-err');
+      think.textContent = '连接失败：' + err.message;
+    } finally {
+      busy = false; sendBtn.disabled = false;
+      scrollBottom();
+    }
+  }
+  sendBtn.addEventListener('click', send);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+
+  /* ---- 连续语音听写（Open-LLM-VTuber 同款体验）----
+     麦克风按钮 = 开关。开启后持续监听：音量门限(VAD)自动断句，
+     说完停顿 ~1.2 秒自动识别 → 自动发送（可触发塔台指令）。
+     小灵播报 TTS 时暂停判定，防止自听回声。 */
+  const micBtn = $('vt-mic');
+  let micOn = false, micCtx = null, micStream = null, micProc = null;
+  let vadSeg = [], vadPre = [], vadTalking = false, vadQuietMs = 0, vadSegMs = 0, recognizing = false;
+  const VAD_TH = 0.018;      // RMS 说话阈值
+  const VAD_STOP_MS = 1200;  // 静音多久判定说完
+  const VAD_MIN_MS = 350;    // 短于此忽略（防环境杂音误触发）
+
+  micBtn.addEventListener('click', () => { micOn ? stopMic() : startMic(); });
+
+  async function startMic() {
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
+      });
+    } catch (e) {
+      addMsg('sys', '麦克风不可用：' + (e.name === 'NotAllowedError' ? '浏览器拒绝了权限，请在地址栏允许麦克风' : e.message), true);
+      return;
+    }
+    micCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+    const src = micCtx.createMediaStreamSource(micStream);
+    micProc = micCtx.createScriptProcessor(4096, 1, 1);
+    micProc.onaudioprocess = (e) => {
+      const f32 = e.inputBuffer.getChannelData(0);
+      if (speaking) { vadSeg = []; vadPre = []; vadTalking = false; return; }  // 小灵说话时不听
+      let sum = 0;
+      for (let i = 0; i < f32.length; i++) sum += f32[i] * f32[i];
+      const rms = Math.sqrt(sum / f32.length);
+      const frameMs = f32.length / 16;  // 16kHz
+      if (rms > VAD_TH) {
+        if (!vadTalking) { vadTalking = true; vadSeg = vadPre.slice(); vadSegMs = 0; }
+        vadQuietMs = 0;
+      } else if (vadTalking) {
+        vadQuietMs += frameMs;
+      }
+      if (!vadTalking) {
+        vadPre.push(new Float32Array(f32));              // 预滚动：保留最近 ~0.5s 作开头
+        let ms = 0; const keep = [];
+        for (let i = vadPre.length - 1; i >= 0 && ms < 500; i--) { keep.unshift(vadPre[i]); ms += vadPre[i].length / 16; }
+        vadPre = keep;
+      } else {
+        vadSeg.push(new Float32Array(f32)); vadSegMs += frameMs;
+        if (vadQuietMs >= VAD_STOP_MS && !recognizing) {
+          const seg = vadSeg; const segMs = vadSegMs;
+          vadSeg = []; vadPre = []; vadTalking = false; vadQuietMs = 0;
+          if (segMs >= VAD_MIN_MS) recognizePcm(seg);    // 说完了 → 识别
+        }
+      }
+    };
+    src.connect(micProc); micProc.connect(micCtx.destination);
+    micOn = true;
+    micBtn.classList.add('rec'); micBtn.textContent = '🎙'; micBtn.title = '连续听写中，点击关闭';
+    addMsg('sys', '连续听写已开启：直接说话，停顿约 1 秒自动识别发送。说"起飞/降落/急停/巡逻/扫描"可直接指挥塔台。');
+  }
+
+  function stopMic() {
+    try { if (micProc) { micProc.disconnect(); micProc = null; } if (micCtx) { micCtx.close(); micCtx = null; } } catch (e) {}
+    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+    vadSeg = []; vadPre = []; vadTalking = false;
+    micOn = false;
+    micBtn.classList.remove('rec'); micBtn.textContent = '🎤'; micBtn.title = '点击开启连续听写';
+  }
+
+  async function recognizePcm(segments) {
+    recognizing = true;
+    micBtn.textContent = '…';
+    try {
+      let n = 0; segments.forEach(s => n += s.length);
+      const i16 = new Int16Array(n);
+      let o = 0;
+      segments.forEach(s => {
+        for (let i = 0; i < s.length; i++) {
+          const v = Math.max(-1, Math.min(1, s[i]));
+          i16[o++] = v < 0 ? v * 0x8000 : v * 0x7FFF;
+        }
+      });
+      const wav = new ArrayBuffer(44 + i16.length * 2);
+      const v = new DataView(wav);
+      const ws = (off, s) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)); };
+      ws(0, 'RIFF'); v.setUint32(4, 36 + i16.length * 2, true); ws(8, 'WAVE');
+      ws(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+      ws(36, 'data'); v.setUint32(40, i16.length * 2, true);
+      new Int16Array(wav, 44).set(i16);
+      const r = await fetch('/api/asr', { method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: wav });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.msg || ('HTTP ' + r.status));
+      if (d.text && d.text.replace(/[，。？！,\.\?!]/g, '').trim()) {
+        input.value = d.text;
+        send();
+      }
+    } catch (e) {
+      addMsg('sys', '语音识别失败：' + e.message, true);
+    } finally {
+      recognizing = false;
+      if (micOn) micBtn.textContent = '🎙';
+    }
+  }
+
+  /* ---- 面板开关 ---- */
+  function placePanel(panel) {
+    const left = layout.x > (panel.offsetWidth || 340) + 30;
+    panel.style.left = left ? (-(panel.offsetWidth) - 10) + 'px' : (W + 10) + 'px';
+    panel.style.right = 'auto';
+  }
+  function togglePanel(panel) {
+    const other = panel === chatPanel ? setPanel : chatPanel;
+    other.hidden = true;
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) placePanel(panel);
+  }
+  $('vt-chat-btn').addEventListener('click', () => { togglePanel(chatPanel); if (!chatPanel.hidden) input.focus(); });
+  $('vt-set-btn').addEventListener('click', () => togglePanel(setPanel));
+  document.querySelectorAll('.vt-x').forEach(b =>
+    b.addEventListener('click', () => $(b.dataset.close).hidden = true));
+
+  /* ---- 设置面板 ---- */
+  const S = {
+    key: $('vt-key'), base: $('vt-base'), model: $('vt-model'), modelUrl: $('vt-model-url'),
+    temp: $('vt-temp'), tempV: $('vt-temp-v'), scale: $('vt-scale'),
+    tts: $('vt-tts'), voice: $('vt-voice'), rate: $('vt-rate'), rateV: $('vt-rate-v'),
+    pitch: $('vt-pitch'), pitchV: $('vt-pitch-v'),
+    vol: $('vt-vol'), volV: $('vt-vol-v'), prompt: $('vt-prompt'),
+  };
+  function loadSettingsUI() {
+    S.key.value = settings.apiKey; S.base.value = settings.baseUrl;
+    S.model.value = settings.model; S.modelUrl.value = settings.modelUrl;
+    S.temp.value = settings.temperature; S.tempV.textContent = settings.temperature;
+    S.scale.value = settings.charScale;
+    S.tts.checked = settings.tts;
+    S.rate.value = settings.rate; S.rateV.textContent = settings.rate;
+    S.pitch.value = settings.pitch; S.pitchV.textContent = settings.pitch;
+    S.vol.value = settings.volume; S.volV.textContent = settings.volume;
+    S.prompt.value = settings.systemPrompt;
+    fillVoices();
+  }
+  function fillVoices() {
+    // 音色列表来自塔台 /api/tts/voices（edge-tts 神经网络音色，同款 Open-LLM-VTuber）
+    fetch('/api/tts/voices').then(r => r.json()).then(list => {
+      S.voice.innerHTML = '';
+      list.forEach(v => {
+        const o = document.createElement('option');
+        o.value = v.id; o.textContent = v.label;
+        if (v.id === settings.edgeVoice) o.selected = true;
+        S.voice.appendChild(o);
+      });
+    }).catch(() => { S.voice.innerHTML = '<option>音色列表加载失败（塔台未启动？）</option>'; });
+  }
+  loadSettingsUI();
+
+  S.temp.addEventListener('input', () => S.tempV.textContent = S.temp.value);
+  S.rate.addEventListener('input', () => S.rateV.textContent = S.rate.value);
+  S.pitch.addEventListener('input', () => S.pitchV.textContent = S.pitch.value);
+  S.vol.addEventListener('input', () => S.volV.textContent = S.vol.value);
+  S.scale.addEventListener('input', () => { settings.charScale = +S.scale.value; applyScale(); });
+
+  $('vt-save').addEventListener('click', () => {
+    settings.apiKey = S.key.value.trim();
+    settings.baseUrl = S.base.value.trim() || DEFAULTS.baseUrl;
+    settings.model = S.model.value.trim() || DEFAULTS.model;
+    settings.temperature = +S.temp.value;
+    settings.charScale = +S.scale.value;
+    settings.tts = S.tts.checked;
+    settings.edgeVoice = S.voice.value; settings.pitch = +S.pitch.value;
+    settings.rate = +S.rate.value;
+    settings.volume = +S.vol.value;
+    settings.systemPrompt = S.prompt.value.trim() || DEFAULTS.systemPrompt;
+    if (S.modelUrl.value.trim() && S.modelUrl.value.trim() !== settings.modelUrl) {
+      settings.modelUrl = S.modelUrl.value.trim();
+      saveSettings();
+      location.reload();
+      return;
+    }
+    saveSettings();
+    applyScale();
+    const b = $('vt-save'); b.textContent = '已保存 ✓';
+    setTimeout(() => b.textContent = '保存设置', 1200);
+  });
+  $('vt-clear-hist').addEventListener('click', () => {
+    history = []; saveHistory(); renderHistory();
+  });
+  // TTS 勾选立即生效（不必先点"保存设置"）；试听按钮无视开关直接发声用于验证
+  S.tts.addEventListener('change', () => {
+    settings.tts = S.tts.checked; saveSettings();
+    if (settings.tts) speak('语音播报已开启。', true);
+  });
+  $('vt-tts-test').addEventListener('click', () => {
+    speak('语音测试：我是小灵，塔台虚拟管家。', true);
+  });
+})();
+</script>
+</body></html>
+
+
+
+
+
+
+
