@@ -149,8 +149,38 @@ def release_control_lock(role):
         pass
 
 
-POSE = {"ts": 0.0, "x": None, "y": None, "z": None, "conf": None}
+POSE = {"ts": 0.0, "x": None, "y": None, "z": None, "conf": None, "hb_ts": 0.0}
 _pose_lock = threading.Lock()
+
+
+def _pose_num(v):
+    """UDP 字段 → 有限浮点；缺失 / 非数字 / NaN 都不是有效位姿。"""
+    try:
+        if v is None or isinstance(v, bool):
+            return None
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    if f != f or f == float("inf") or f == float("-inf"):
+        return None
+    return f
+
+
+def _apply_hover_pose(p, now=None):
+    """有效 x 与 z 才刷新 pose ts。纯心跳只记 hb_ts，pose_age 继续增长。"""
+    now = time.time() if now is None else now
+    x = _pose_num(p.get("x") if isinstance(p, dict) else None)
+    z = _pose_num(p.get("z") if isinstance(p, dict) else None)
+    with _pose_lock:
+        POSE["hb_ts"] = now
+        if x is None or z is None:
+            POSE["x"] = None
+            POSE["y"] = None
+            POSE["z"] = None
+            POSE["conf"] = None
+            return False
+        POSE.update(ts=now, x=x, y=_pose_num(p.get("y")), z=z, conf=p.get("conf"))
+        return True
 
 
 def _pose_rx_loop():
@@ -176,9 +206,7 @@ def _pose_rx_loop():
             p = json.loads(data.decode("utf-8", "ignore"))
         except ValueError:
             continue
-        with _pose_lock:
-            POSE.update(ts=time.time(), x=p.get("x"), y=p.get("y"),
-                        z=p.get("z"), conf=p.get("conf"))
+        _apply_hover_pose(p)
 
 
 def get_pose():

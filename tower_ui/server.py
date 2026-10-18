@@ -430,8 +430,45 @@ def _state_loop():
 
 POSE_PORT = int(os.environ.get("POSE_PORT", "8898"))
 VISION_POSE = {"ts": 0.0, "x": None, "y": None, "z": None,
-               "conf": None, "label": None, "src": None}
+               "conf": None, "label": None, "src": None, "hb_ts": 0.0}
 _pose_lock = threading.Lock()
+
+
+def _pose_num(v):
+    """UDP 字段 → 有限浮点；缺失 / 非数字 / NaN 都不是有效位姿。"""
+    try:
+        if v is None or isinstance(v, bool):
+            return None
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    if f != f or f == float("inf") or f == float("-inf"):
+        return None
+    return f
+
+
+def _apply_vision_pose(p, now=None):
+    """有效 x 与 z 才刷新 pose ts。纯心跳只记 hb_ts，pose_age 从上一帧真实位姿继续涨。"""
+    now = time.time() if now is None else now
+    x = _pose_num(p.get("x") if isinstance(p, dict) else None)
+    z = _pose_num(p.get("z") if isinstance(p, dict) else None)
+    with _pose_lock:
+        VISION_POSE["hb_ts"] = now
+        if x is None or z is None:
+            VISION_POSE["x"] = None
+            VISION_POSE["y"] = None
+            VISION_POSE["z"] = None
+            VISION_POSE["conf"] = None
+            VISION_POSE["label"] = None
+            src = p.get("src") if isinstance(p, dict) else None
+            if src:
+                VISION_POSE["src"] = src
+            return False
+        VISION_POSE.update(
+            ts=now, x=x, y=_pose_num(p.get("y")), z=z,
+            conf=p.get("conf"), label=p.get("label"), src=p.get("src"),
+        )
+        return True
 
 
 def vision_pose(max_age=0.6):
@@ -461,10 +498,7 @@ def _pose_loop():
             p = json.loads(data.decode("utf-8", "ignore"))
         except ValueError:
             continue
-        with _pose_lock:
-            VISION_POSE.update(ts=time.time(), x=p.get("x"), y=p.get("y"),
-                               z=p.get("z"), conf=p.get("conf"),
-                               label=p.get("label"), src=p.get("src"))
+        _apply_vision_pose(p)
 
 
 # ------------------------------------------------------- rc 指令 UDP 入口
@@ -902,9 +936,11 @@ def vision_status():
         "objects": VISION["objects"] if fresh else [],
         "change": VISION["change"] if fresh else None,
         "ts": VISION["ts"] if fresh else None,
-        # 高频位姿（UDP 5fps）：控制器闭环专用，不含 hold 回灌的幽灵坐标
+        # 高频位姿（UDP 5fps）：控制器闭环专用，不含 hold 回灌的幽灵坐标。
+        # pose_age 只看上一帧有效 x/z 的 ts；心跳见 pose_hb_age。
         "pose": vision_pose(2.0),
-        "pose_age": round(time.time() - VISION_POSE["ts"], 3),
+        "pose_age": (round(time.time() - VISION_POSE["ts"], 3) if VISION_POSE["ts"] else None),
+        "pose_hb_age": (round(time.time() - VISION_POSE["hb_ts"], 3) if VISION_POSE.get("hb_ts") else None),
     }
 
 
