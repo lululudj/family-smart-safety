@@ -182,16 +182,22 @@ TRACK_SCORE_LOCK = 0.42          # >= 实线橙框 + 允许采纳邻域弱检
 TRACK_SCORE_DROP = 0.05          # 低于此丢弃跟踪
 TRACK_SCORE_WEAK_MIN = CONF_DRONE  # 弱检不得低于验收线
 # ---- 彩色光流 + 深度团块续跟（YOLO 短暂丢检补洞）----
-DEPTHFLOW_MAX_S = 1.0          # 最长续跟秒数；超时仍无 YOLO 则清跟踪
-DEPTHFLOW_DZ_M = 0.50          # 上一 z ±Δz 深度邻域
+# MAX_S 略大于 hover LOST_ABORT（0.8s），短丢检仍能在降落前把真实深度喂进 UDP。
+# 不要把 LOST_ABORT 拉长去掩盖假续跟；窗口够用即可。
+DEPTHFLOW_MAX_S = float(os.environ.get("DEPTHFLOW_MAX_S", "1.2"))
+DEPTHFLOW_DZ_M = float(os.environ.get("DEPTHFLOW_DZ_M", "0.50"))  # 上一 z ±Δz 搜索带
+# 搜索带 ±0.50m 已经罩得住身后的墙。z 门必须更紧，否则带内粘连团块过得了 0.60m。
+DEPTHFLOW_Z_JUMP_M = float(os.environ.get("DEPTHFLOW_Z_JUMP_M", "0.35"))
+DEPTHFLOW_JUMP_M = float(os.environ.get("DEPTHFLOW_JUMP_M", "0.60"))  # 三维，对齐 hover JUMP_MAX
 DEPTHFLOW_MIN_PTS = 24         # 有效深度点数下限
-DEPTHFLOW_SCORE_GAIN = 0.10    # 续跟成功小幅加分
-DEPTHFLOW_DECAY = 0.07         # 续跟成功时衰减更慢（相对未检）
-DEPTHFLOW_FAIL_DECAY = 0.20    # 续跟失败加速衰减
+DEPTHFLOW_SCORE_GAIN = 0.10    # 续跟成功小幅加分（成功帧不衰减）
+DEPTHFLOW_DECAY = 0.07         # 已锁定且光流仍活跃、但本帧没续跟上时的慢衰减
+DEPTHFLOW_FAIL_DECAY = 0.20    # 团块/跳变/尺寸失败时加速衰减
 DEPTHFLOW_COLOR = (255, 220, 40)  # BGR 青黄虚线，区别橙框 YOLO
 _flow_state = {
     "prev_gray": None, "box": None, "z": None, "phys": None,
     "yolo_ts": 0.0, "flow_start": 0.0, "active": False,
+    "last_fail": False, "lock_hold_until": 0.0,
 }
 _track_score = {"score": 0.0, "ts": 0.0, "hits": 0, "misses": 0, "locked": False}
 _track_score_log_ts = 0.0
@@ -576,6 +582,11 @@ def push_pose(objects):
     if best is not None:
         payload.update(x=best["x"], y=best["y"], z=best["z"],
                        conf=best.get("conf"), label=best.get("label"))
+        # held 已在上面剔除；这里只标记真正进 UDP 的续跟位姿
+        if best.get("det_src") == "depthflow" or best.get("track_mode") == "depthflow":
+            print(f"[pose] det_src=depthflow x={best['x']:+.3f} y={best['y']:+.3f} "
+                  f"z={best['z']:.3f} conf={best.get('conf')} "
+                  f"score={_track_score.get('score', 0):.2f}")
     raw = json.dumps(payload).encode("utf-8")
     for addr in POSE_TARGETS:
         try:
@@ -873,7 +884,34 @@ def _clear_flow_track(reason=""):
     _flow_state.update(
         prev_gray=None, box=None, z=None, phys=None,
         yolo_ts=0.0, flow_start=0.0, active=False,
+        last_fail=False, lock_hold_until=0.0,
     )
+
+
+def _depthflow_jump_reason(x, y, z):
+    """续跟 xyz 相对光流 z / _last_pose 跳太多则拒绝（背景粘连）。
+
+    返回原因串；没有超阈返回 None。没有新鲜参考时放行，交给尺寸和 z 窗。
+    """
+    reasons = []
+    z_lim = DEPTHFLOW_Z_JUMP_M
+    xyz_lim = DEPTHFLOW_JUMP_M
+    fz = _flow_state.get("z")
+    if fz is not None and abs(z - float(fz)) > z_lim:
+        reasons.append(f"dz_flow={z - float(fz):+.2f}>{z_lim:.2f}")
+    lp = _last_pose
+    if lp.get("x") is not None and lp.get("z") is not None:
+        age = time.time() - float(lp.get("ts") or 0.0)
+        if 0.0 <= age <= max(2.0, DEPTHFLOW_MAX_S + 0.5):
+            dx = float(x) - float(lp["x"])
+            dy = float(y) - float(lp.get("y") or 0.0)
+            dzp = float(z) - float(lp["z"])
+            if abs(dzp) > z_lim:
+                reasons.append(f"dz_pose={dzp:+.2f}>{z_lim:.2f}")
+            dist = (dx * dx + dy * dy + dzp * dzp) ** 0.5
+            if dist > xyz_lim:
+                reasons.append(f"dxyz={dist:.2f}>{xyz_lim:.2f}")
+    return " ".join(reasons) if reasons else None
 
 
 def _depth_blob_at(depth, meta, sx, sy, cx_color, cy_color, bw, bh, z_ref,
@@ -881,6 +919,7 @@ def _depth_blob_at(depth, meta, sx, sy, cx_color, cy_color, bw, bh, z_ref,
     """Find depth points near predicted color center within z_ref±DZ.
     Returns (box_color, z_mm, xyz, phys, n_pts) or None.
     Pose comes from current depth median/centroid — never pure extrapolation.
+    跳变门不在这里收紧搜索带：找到 xyz 后由 try_depthflow 对 _last_pose / 光流 z 拒绝。
     """
     h, w = depth.shape
     # search window in color px, then map to depth
@@ -985,24 +1024,25 @@ def try_depthflow(meta, color=None, depth=None):
     z_ref = float(st.get("z") or 1.0)
     blob = _depth_blob_at(depth, meta, sx, sy, cx, cy, bw, bh, z_ref)
     if blob is None:
-        # update gray/box lightly with flow-only for next try, but no pose object
-        new_box = (cx - bw * 0.5, cy - bh * 0.5, cx + bw * 0.5, cy + bh * 0.5)
-        st["prev_gray"] = gray
-        st["box"] = new_box
-        print(f"[depthflow] dx={dx:.1f} dy={dy:.1f} z=None (no blob) score={_track_score.get('score', 0):.2f}")
+        # 团块失败：不把光流位移写进 box / 不改 z。锚留在上一帧真实深度。
+        print(f"[depthflow] dx={dx:.1f} dy={dy:.1f} z=None (no blob) "
+              f"score={_track_score.get('score', 0):.2f} box-hold")
         return None
 
     new_box, z_mm, xyz, phys, n_pts = blob
     x, y, z = xyz
+    jump = _depthflow_jump_reason(x, y, z)
+    if jump:
+        # 背景粘连：不提交框，也不把这帧 z 写进 flow state。调用方走失败衰减。
+        print(f"[depthflow] dx={dx:.1f} dy={dy:.1f} z={z:.2f} REJECT jump {jump} "
+              f"score={_track_score.get('score', 0):.2f}")
+        return None
     verified = False
     if phys:
         verified = DRONE_MIN_M <= max(phys) <= DRONE_MAX_M
     if not verified:
         print(f"[depthflow] dx={dx:.1f} dy={dy:.1f} z={z:.2f} phys={phys} REJECT size "
               f"score={_track_score.get('score', 0):.2f}")
-        st["prev_gray"] = gray
-        st["box"] = tuple(new_box)
-        st["z"] = z
         return None
     if not (POSE_Z_MIN <= z <= POSE_Z_MAX):
         print(f"[depthflow] dx={dx:.1f} dy={dy:.1f} z={z:.2f} REJECT z-range "
@@ -1022,7 +1062,7 @@ def try_depthflow(meta, color=None, depth=None):
     st["z"] = z
     st["phys"] = tuple(round(v, 3) for v in phys) if phys else None
 
-    print(f"[depthflow] dx={dx:.1f} dy={dy:.1f} z={z:.2f} n={n_pts} "
+    print(f"[depthflow] det_src=depthflow dx={dx:.1f} dy={dy:.1f} z={z:.2f} n={n_pts} "
           f"age={flow_age:.2f}s score={_track_score.get('score', 0):.2f}")
 
     return {
@@ -1139,11 +1179,19 @@ def update_track_score(objects):
         sc = min(TRACK_SCORE_MAX, sc + gain)
         _track_score["hits"] = int(_track_score.get("hits") or 0) + 1
         _track_score["misses"] = 0
+        _flow_state["last_fail"] = False
+        _flow_state["lock_hold_until"] = 0.0
     elif hit_kind == "depthflow" and best is not None:
-        # 已锁定才允许：小幅加分，禁止从 0 拉到 LOCK
-        sc = min(TRACK_SCORE_MAX, sc + DEPTHFLOW_SCORE_GAIN)
+        # 已锁定才进得来。成功帧只加分、不衰减。
+        # 刚越过 LOCK（0.42）时 +0.10 挡不住下一帧 DECAY(0.14) / FAIL_DECAY(0.20)，
+        # maybe_attach_depthflow 会立刻停。抬到至少 LOCK+一帧最大衰减。
+        one_miss = max(TRACK_SCORE_DECAY, DEPTHFLOW_DECAY, DEPTHFLOW_FAIL_DECAY)
+        sc = min(TRACK_SCORE_MAX, max(sc + DEPTHFLOW_SCORE_GAIN, TRACK_SCORE_LOCK + one_miss))
         _track_score["hits"] = int(_track_score.get("hits") or 0) + 1
         _track_score["misses"] = 0
+        yolo_ts = float(_flow_state.get("yolo_ts") or now)
+        _flow_state["lock_hold_until"] = yolo_ts + DEPTHFLOW_MAX_S
+        _flow_state["last_fail"] = False
     else:
         decay = TRACK_SCORE_DECAY
         if _flow_state.get("last_fail"):
@@ -1152,6 +1200,13 @@ def update_track_score(objects):
             decay = DEPTHFLOW_DECAY
         sc = max(0.0, sc - decay)
         _track_score["misses"] = int(_track_score.get("misses") or 0) + 1
+        hold_until = float(_flow_state.get("lock_hold_until") or 0.0)
+        if (not _flow_state.get("last_fail") and _flow_state.get("active")
+                and hold_until > now and locked_now and sc < TRACK_SCORE_LOCK):
+            # 窗口内普通 DECAY 不得单独打掉 LOCK；失败衰减不在此列
+            sc = TRACK_SCORE_LOCK
+        elif _flow_state.get("last_fail") and sc < TRACK_SCORE_LOCK:
+            _flow_state["lock_hold_until"] = 0.0
 
     if sc <= TRACK_SCORE_DROP:
         sc = 0.0
@@ -1165,7 +1220,7 @@ def update_track_score(objects):
         tag = "LOCK" if locked else ("track" if sc > TRACK_SCORE_DROP else "idle")
         print(f"[score] {tag} score={sc:.2f} hits={_track_score['hits']} "
               f"miss={_track_score['misses']} best="
-              f"{(best.get('conf') if best else None)}")
+              f"{(best.get('conf') if best else None)} det_src={hit_kind or '-'}")
 
     # annotate score onto best for status/HTTP
     if best is not None:
@@ -1459,6 +1514,8 @@ def main():
     model = load_model()
     device = pick_device(model)
     print(f"模型就绪（推理设备 {device}）。Kinect 目录: {KINECT_DIR}")
+    print(f"[depthflow] MAX_S={DEPTHFLOW_MAX_S:.2f} DZ={DEPTHFLOW_DZ_M:.2f} "
+          f"Z_JUMP={DEPTHFLOW_Z_JUMP_M:.2f} JUMP={DEPTHFLOW_JUMP_M:.2f}")
 
     if args.probe:
         meta = read_meta()
