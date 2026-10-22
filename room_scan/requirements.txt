@@ -1,0 +1,5 @@
+# 房间扫描额外依赖。numpy / opencv 与现有 Kinect 脚本相同。
+# --demo 和 --sequence 不需要 pykinect2。
+open3d>=0.18
+numpy
+opencv-python
