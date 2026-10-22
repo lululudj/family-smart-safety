@@ -75,6 +75,9 @@ tower_ui/web/vendor/node_modules/
 # nested git / proxy
 xiaozhi-mcp-proxy/
 
+# Kinect 房间扫描输出（网格和转储帧都可能很大）
+scans/
+
 # scratch / captures
 _live_*.jpg
 _patrol_*.err
